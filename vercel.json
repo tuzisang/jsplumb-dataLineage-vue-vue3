@@ -1,15 +1,25 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/server.py"
+      "src": "api/lineage.py",
+      "use": "@vercel/python"
     },
     {
-      "source": "/(.*)",
-      "destination": "/"
+      "src": "api/test.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/lineage",
+      "methods": ["POST", "OPTIONS"],
+      "dest": "api/lineage.py"
+    },
+    {
+      "src": "/api/test",
+      "methods": ["GET"],
+      "dest": "api/test.py"
     }
   ]
 } 

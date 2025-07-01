@@ -49,76 +49,75 @@ def analyze_sql_lineage(data):
             'error': str(e)
         }, 500
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        """测试路由"""
-        if self.path == '/api/test':
-            try:
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                response = {'status': 'ok', 'message': 'API server is running'}
-                self.wfile.write(json.dumps(response).encode('utf-8'))
-            except Exception as e:
-                self._send_error(500, f"Test route error: {str(e)}")
-        else:
-            self._send_error(404, "Not found")
+def handler(request):
+    """
+    Vercel Serverless Function handler
+    """
+    print("Request received:", request.method)  # 添加请求方法日志
+    
+    # 处理 OPTIONS 请求
+    if request.method == 'OPTIONS':
+        print("Handling OPTIONS request")  # 添加 OPTIONS 请求日志
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+        }
+        return {'statusCode': 200, 'headers': headers, 'body': ''}
 
-    def do_POST(self):
+    # 处理 POST 请求
+    if request.method == 'POST':
         try:
-            if self.path != '/api/lineage':
-                self._send_error(404, "Not found")
-                return
-
-            content_length = int(self.headers.get('Content-Length', 0))
-            if content_length == 0:
-                self._send_error(400, "Empty request body")
-                return
-
-            post_data = self.rfile.read(content_length).decode('utf-8')
-            print(f"Received POST data: {post_data}")
+            print("Handling POST request")  # 添加 POST 请求日志
+            # 获取请求体
+            body = json.loads(request.body)
+            print("Request body:", body)  # 添加请求体日志
             
-            try:
-                data = json.loads(post_data)
-            except json.JSONDecodeError as e:
-                self._send_error(400, f"Invalid JSON format: {str(e)}")
-                return
-
-            result, status_code = analyze_sql_lineage(data)
+            # 分析 SQL
+            result, status_code = analyze_sql_lineage(body)
+            print("Analysis result:", result)  # 添加分析结果日志
             
-            self.send_response(status_code)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-            self.end_headers()
+            # 设置响应头
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Content-Type': 'application/json'
+            }
             
-            response_json = json.dumps(result)
-            print(f"Sending response: {response_json}")
-            self.wfile.write(response_json.encode('utf-8'))
+            # 返回响应
+            response = {
+                'statusCode': status_code,
+                'headers': headers,
+                'body': json.dumps(result)
+            }
+            print("Sending response:", response)  # 添加响应日志
+            return response
             
         except Exception as e:
-            print("Error in do_POST:", file=sys.stderr)
+            print("Error in handler:", str(e))  # 添加错误日志
+            print("Error details:", file=sys.stderr)
             traceback.print_exc()
-            self._send_error(500, f"Internal server error: {str(e)}")
-    
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-    
-    def _send_error(self, status_code, message):
-        try:
-            self.send_response(status_code)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            error_response = json.dumps({'error': message})
-            print(f"Sending error response: {error_response}")
-            self.wfile.write(error_response.encode('utf-8'))
-        except Exception as e:
-            print("Error in _send_error:", file=sys.stderr)
-            traceback.print_exc() 
+            
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Content-Type': 'application/json'
+            }
+            
+            error_response = {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({'error': str(e)})
+            }
+            print("Sending error response:", error_response)  # 添加错误响应日志
+            return error_response
+
+    # 处理其他请求方法
+    print(f"Unsupported method: {request.method}")  # 添加不支持的方法日志
+    return {
+        'statusCode': 405,
+        'headers': {'Content-Type': 'application/json'},
+        'body': json.dumps({'error': 'Method not allowed'})
+    } 
