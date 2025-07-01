@@ -1,0 +1,126 @@
+{
+  "edges": [
+    {
+      "from": {
+        "field": "user_id",
+        "name": "raw_users"
+      },
+      "to": {
+        "field": "user_id",
+        "name": "tmp_active_users"
+      }
+    },
+    {
+      "from": {
+        "field": "order_id",
+        "name": "raw_orders"
+      },
+      "to": {
+        "field": "order_id",
+        "name": "tmp_active_users"
+      }
+    },
+    {
+      "from": {
+        "field": "user_id",
+        "name": "tmp_active_users"
+      },
+      "to": {
+        "field": "user_id",
+        "name": "user_order_summary"
+      }
+    },
+    {
+      "from": {
+        "field": "total_amount",
+        "name": "tmp_active_users"
+      },
+      "to": {
+        "field": "total_amount",
+        "name": "user_order_summary"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "fields": [
+        {
+          "name": "user_id"
+        },
+        {
+          "name": "username"
+        },
+        {
+          "name": "email"
+        },
+        {
+          "name": "created_at"
+        }
+      ],
+      "left": 50,
+      "name": "raw_users",
+      "top": 50,
+      "type": "Origin"
+    },
+    {
+      "fields": [
+        {
+          "name": "order_id"
+        },
+        {
+          "name": "user_id"
+        },
+        {
+          "name": "amount"
+        },
+        {
+          "name": "order_date"
+        }
+      ],
+      "left": 50,
+      "name": "raw_orders",
+      "top": 250,
+      "type": "Origin"
+    },
+    {
+      "fields": [
+        {
+          "name": "user_id"
+        },
+        {
+          "name": "order_id"
+        },
+        {
+          "name": "total_amount"
+        },
+        {
+          "name": "last_order_date"
+        }
+      ],
+      "left": 400,
+      "name": "tmp_active_users",
+      "top": 150,
+      "type": "TMP"
+    },
+    {
+      "fields": [
+        {
+          "name": "user_id"
+        },
+        {
+          "name": "total_amount"
+        },
+        {
+          "name": "order_count"
+        },
+        {
+          "name": "last_activity"
+        }
+      ],
+      "left": 750,
+      "name": "user_order_summary",
+      "top": 150,
+      "type": "Target"
+    }
+  ]
+}
