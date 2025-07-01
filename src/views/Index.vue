@@ -847,7 +847,9 @@ export default {
 
       this.isAnalyzing = true;
       try {
-        const response = await fetch('/api/lineage', {
+        // 使用完整的 API URL
+        const apiUrl = import.meta.env.VITE_API_URL || '/api/lineage';
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
