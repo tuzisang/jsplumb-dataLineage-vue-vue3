@@ -1,30 +1,21 @@
-from http.server import HTTPServer
-from lineage import handler
-import sys
-import traceback
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from lineage import analyze_sql_lineage
 
-def run(server_class=HTTPServer, handler_class=handler, port=3000):
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/api/lineage', methods=['POST'])
+def handle_lineage():
     try:
-        server_address = ('', port)
-        httpd = server_class(server_address, handler_class)
-        print(f'Starting server on port {port}...')
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print('\nShutting down server...')
-        httpd.server_close()
+        data = request.get_json()
+        if not data or 'sql_query' not in data:
+            return jsonify({'error': 'Missing SQL query'}), 400
+            
+        result, status_code = analyze_sql_lineage(data)
+        return jsonify(result), status_code
     except Exception as e:
-        print(f'Error starting server: {e}', file=sys.stderr)
-        traceback.print_exc()
-        sys.exit(1)
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    try:
-        run()
-    except ImportError as e:
-        print(f'Error: Required package not found: {e}', file=sys.stderr)
-        print('Please install required packages using: pip install -r requirements.txt')
-        sys.exit(1)
-    except Exception as e:
-        print(f'Unexpected error: {e}', file=sys.stderr)
-        traceback.print_exc()
-        sys.exit(1) 
+    app.run(port=5000) 
