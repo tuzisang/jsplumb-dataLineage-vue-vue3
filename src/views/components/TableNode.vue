@@ -49,7 +49,12 @@
         @click.stop="handleFieldClick(field.name)"
       >
         <div class="field-content">
-          <span class="field-name">{{ field.name }}</span>
+          <span 
+            class="field-name"
+            :class="{ 'field-name--mismatched': hasFieldNameMismatch(field.name) }"
+          >
+            {{ field.name }}
+          </span>
           <span v-if="node.type === 'Origin' && getFieldReferenceCount(field.name)" class="field-ref-count source-ref">
             {{ getFieldReferenceCount(field.name) }}
           </span>
@@ -203,6 +208,25 @@ export default {
         tableName: this.node.name,
         isHidden: !this.isHidden
       });
+    },
+    // 检查字段名是否存在不完全匹配
+    hasFieldNameMismatch(fieldName) {
+      // 如果是源表，检查所有引用这个字段的目标字段
+      if (this.node.type === 'Origin') {
+        return this.edges.some(edge => 
+          edge.from.name === this.node.name && 
+          edge.from.field === fieldName &&
+          edge.from.field !== edge.to.field
+        );
+      }
+      // 如果是目标表，检查所有被这个字段引用的源字段
+      else {
+        return this.edges.some(edge => 
+          edge.to.name === this.node.name && 
+          edge.to.field === fieldName &&
+          edge.from.field !== edge.to.field
+        );
+      }
     }
   },
   computed: {
@@ -226,6 +250,10 @@ export default {
   border-radius: 6px 6px 0 0;
   background: #fff;
   min-width: 200px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  transition: opacity 0.3s ease;
 
   .table-node-header {
     display: flex;
@@ -336,6 +364,17 @@ export default {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          
+          &--mismatched {
+            color: #1976d2;
+            font-weight: 500;
+            
+            &::after {
+              content: '*';
+              color: #1976d2;
+              margin-left: 2px;
+            }
+          }
         }
 
         .field-ref-count {
@@ -364,6 +403,7 @@ export default {
   &--disabled {
     pointer-events: none;
     cursor: default;
+    opacity: 0.1;
 
     .table-node-name,
     .hide-node-btn,
