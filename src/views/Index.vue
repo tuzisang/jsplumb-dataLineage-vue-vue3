@@ -1,37 +1,49 @@
 <template>
   <div class="app-container">
   <!-- SQL 输入面板 -->
-  <div class="sql-panel">
-    <div class="sql-editor">
-      <textarea 
-        v-model="sqlQuery" 
-        placeholder="请输入 SQL 查询语句..."
-        class="sql-textarea"
-      ></textarea>
-      <div class="sql-actions">
-        <div class="sql-options">
-          <label class="option-label">
-            <input 
-              type="checkbox" 
-              v-model="includeIntermediateTables"
-            >
-            <span class="option-text">显示中间表</span>
-          </label>
-          <label class="option-label">
-            <input 
-              type="checkbox" 
-              v-model="filterCtes"
-            >
-            <span class="option-text">仅显示物理表</span>
-          </label>
+  <div class="sql-container">
+    <!-- 最小化按钮单独放置 -->
+    <button 
+      class="minimize-btn"
+      @click="toggleMinimize"
+      :title="isMinimized ? '展开' : '最小化'"
+    >
+      {{ isMinimized ? '↑' : '↓' }}
+    </button>
+    
+    <!-- SQL面板 -->
+    <div class="sql-panel" :class="{ 'sql-panel--minimized': isMinimized }">
+      <div class="sql-editor" v-show="!isMinimized">
+        <textarea 
+          v-model="sqlQuery" 
+          placeholder="请输入 SQL 查询语句..."
+          class="sql-textarea"
+        ></textarea>
+        <div class="sql-actions">
+          <div class="sql-options">
+            <label class="option-label">
+              <input 
+                type="checkbox" 
+                v-model="includeIntermediateTables"
+              >
+              <span class="option-text">显示中间表</span>
+            </label>
+            <label class="option-label">
+              <input 
+                type="checkbox" 
+                v-model="filterCtes"
+              >
+              <span class="option-text">仅显示物理表</span>
+            </label>
+          </div>
+          <button 
+            class="analyze-btn"
+            @click="analyzeSql"
+            :disabled="!sqlQuery.trim() || isAnalyzing"
+          >
+            {{ isAnalyzing ? '分析中...' : '分析血缘关系' }}
+          </button>
         </div>
-        <button 
-          class="analyze-btn"
-          @click="analyzeSql"
-          :disabled="!sqlQuery.trim() || isAnalyzing"
-        >
-          {{ isAnalyzing ? '分析中...' : '分析血缘关系' }}
-        </button>
       </div>
     </div>
   </div>
@@ -273,20 +285,19 @@ export default {
   },
   data() {
     return {
-      sqlQuery: '', // 新增：SQL 查询文本
-      isAnalyzing: false, // 新增：是否正在分析
+      sqlQuery: '',
+      isAnalyzing: false,
       jsplumbInstance: null,
       json: {
         nodes: [],
         edges: []
       },
       commConfig: commConfig,
-      auxiliaryLine: {isShowXLine: false, isShowYLine: false},  //对齐辅助线是否显示
+      auxiliaryLine: {isShowXLine: false, isShowYLine: false},
       auxiliaryLinePos: {width: '100%', height: '100%', offsetX: 0, offsetY: 0, x: 20, y: 20},
-      minus: '-', //表名和列名的分割符号
-      anchorArr: ['Left', 'Right'],//specified anchor
-      commGrid: [5, 5],//节点移动最小距离
-      // 新增数据
+      minus: '-',
+      anchorArr: ['Left', 'Right'],
+      commGrid: [5, 5],
       searchQuery: '',
       showDropdown: false,
       filteredFields: [],
@@ -294,43 +305,39 @@ export default {
       showToast: false,
       toastMessage: '',
       toastTimer: null,
-      // 新增的高级搜索相关数据
       tableTypes: colorFields.filter(color => color.type !== 'HighLight' && color.type !== 'NormalLight'),
       selectedTableTypes: [],
       searchMode: 'contains',
       searchInTableNames: true,
       searchInFieldNames: true,
       showOnlyCriticalPath: false,
-      criticalPathNodes: new Set(), // 存储关键路径上的节点
+      criticalPathNodes: new Set(),
       viewportTop: 0,
       viewportBottom: 0,
       nodePositions: new Map(),
       isInitializing: false,
-      currentFieldIndex: 0, // 当前聚焦的字段索引
-      hiddenNodes: new Set(), // 新增：存储被隐藏的节点
-      hiddenNodesConnections: null, // 新增：存储隐藏节点的连接信息
-      nodeSearchQuery: '', // 节点搜索查询
-      focusedNode: null, // 当前聚焦的节点
-      panelWidth: 300, // 初始面板宽度
+      currentFieldIndex: 0,
+      hiddenNodes: new Set(),
+      hiddenNodesConnections: null,
+      nodeSearchQuery: '',
+      focusedNode: null,
+      panelWidth: 300,
       isResizing: false,
       lastMouseX: 0,
       minPanelWidth: 200,
       maxPanelWidth: 600,
       includeIntermediateTables: false,
       filterCtes: false,
+      isMinimized: false
     };
   },
   mounted() {
     this.renderDefaultLineage()
-    // 添加点击外部关闭下拉框的事件监听
     document.addEventListener('click', this.handleClickOutside)
-    // 添加滚动监听
     this.$refs.flowWrap.addEventListener('scroll', this.handleScroll)
-    // 添加缩放监听
     window.addEventListener('resize', this.handleResize)
-    // 添加全局鼠标事件监听
-    document.addEventListener('mousemove', this.handleResize);
-    document.addEventListener('mouseup', this.stopResize);
+    document.addEventListener('mousemove', this.handleResize)
+    document.addEventListener('mouseup', this.stopResize)
   },
   beforeDestroy() {
     this.jsplumbInstance.reset()
@@ -340,40 +347,38 @@ export default {
     if (this.toastTimer) {
       clearTimeout(this.toastTimer)
     }
-    // 移除全局鼠标事件监听
-    document.removeEventListener('mousemove', this.handleResize);
-    document.removeEventListener('mouseup', this.stopResize);
+    document.removeEventListener('mousemove', this.handleResize)
+    document.removeEventListener('mouseup', this.stopResize)
   },
   created() {
-    // 初始化时选中所有表类型
-    this.selectedTableTypes = this.tableTypes.map(type => type.type);
+    this.selectedTableTypes = this.tableTypes.map(type => type.type)
   },
   computed: {
-    // 新增：检查是否有来源表
     hasOriginTables() {
-      return this.json.nodes.some(node => node.type === 'Origin');
+      return this.json.nodes.some(node => node.type === 'Origin')
     },
-    // 改进的节点过滤逻辑
     filteredNodeList() {
       if (!this.nodeSearchQuery) {
-        return this.json.nodes;
+        return this.json.nodes
       }
-      
-      const query = this.nodeSearchQuery.toLowerCase();
+      const query = this.nodeSearchQuery.toLowerCase()
       return this.json.nodes.filter(node => {
-        const nodeName = node.name.toLowerCase();
-        return nodeName.includes(query);
+        const nodeName = node.name.toLowerCase()
+        return nodeName.includes(query)
       }).sort((a, b) => {
-        // 优先显示以搜索词开头的节点
-        const aStartsWith = a.name.toLowerCase().startsWith(query);
-        const bStartsWith = b.name.toLowerCase().startsWith(query);
-        if (aStartsWith && !bStartsWith) return -1;
-        if (!aStartsWith && bStartsWith) return 1;
-        return a.name.localeCompare(b.name);
-      });
+        const aStartsWith = a.name.toLowerCase().startsWith(query)
+        const bStartsWith = b.name.toLowerCase().startsWith(query)
+        if (aStartsWith && !bStartsWith) return -1
+        if (!aStartsWith && bStartsWith) return 1
+        return a.name.localeCompare(b.name)
+      })
     }
   },
   methods: {
+    ...comm,
+    toggleMinimize() {
+      this.isMinimized = !this.isMinimized
+    },
     renderDefaultLineage() {
       // 对源表节点按字段数量降序排序
       const sortedNodes = [...sampleData.nodes].sort((a, b) => {
@@ -603,7 +608,6 @@ export default {
         this.jsplumbInstance.setSuspendDrawing(false, true);
       });
     },
-    ...comm,
     // 获取表的类型
     getTableType(tableName) {
       const node = this.json.nodes.find(node => node.name === tableName);
@@ -1415,7 +1419,7 @@ export default {
       } finally {
         this.isAnalyzing = false;
       }
-    },
+    }
   }
 };
 </script>
@@ -1427,106 +1431,79 @@ export default {
   height: 100vh;
   overflow: hidden;
 
-  .sql-panel {
+  .sql-container {
     position: fixed;
     left: 50%;
     bottom: 20px;
     transform: translateX(-50%);
     z-index: 10001;
-    width: 80%;
-    max-width: 1200px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-    padding: 16px;
+    width: 30%;  // 改回30%宽度
+    max-width: 800px;
     
-    .sql-editor {
+    // 最小化按钮样式
+    .minimize-btn {
+      position: absolute;
+      top: -32px;
+      right: 0;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 4px 4px 0 0;
+      background: white;
+      color: #666;
+      cursor: pointer;
       display: flex;
-      flex-direction: column;
-      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      z-index: 10002; // 确保按钮始终在最上层
       
-      .sql-textarea {
-        width: 50%;
-        height: 80px;
-        padding: 12px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-        font-size: 14px;
-        resize: vertical;
-        min-height: 50px;
-        max-height: 300px;
-        
-        &:focus {
-          outline: none;
-          border-color: #409EFF;
-        }
-      }
-      
-      .sql-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        
-        .sql-options {
-          display: flex;
-          gap: 16px;
-          
-          label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 14px;
-            color: #606266;
-            cursor: pointer;
-            
-            input[type="checkbox"] {
-              margin: 0;
-            }
-            
-            &:has(input:disabled) {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
-          }
-        }
+      &:hover {
+        background: #f5f5f5;
+        color: #333;
       }
     }
-  }
-
-    // SQL 输入面板样式
+    
+    // SQL面板样式
     .sql-panel {
-      position: fixed;
-      left: 50%;
-      bottom: 0px;
-      transform: translateX(-50%);
-      z-index: 10001;
-      width: 30%;
-      max-width: 1200px;
+      width: 100%;
       background: white;
-      border-radius: 4px;
+      border-radius: 8px;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
       padding: 16px;
+      transition: all 0.3s ease;
+      
+      // 最小化状态样式
+      &--minimized {
+        padding: 0;
+        height: 0;
+        opacity: 0;
+        pointer-events: none;
+        background: transparent;
+        box-shadow: none;
+      }
       
       .sql-editor {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 12px;
         
         .sql-textarea {
           width: 90%;
-          height: 60px;
+          height: 60px;  // 调整回原来的高度
           padding: 12px;
           border: 1px solid #ddd;
           border-radius: 6px;
           font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
           font-size: 12px;
-          line-height: 1;
+          line-height: 1.5;
           resize: vertical;
-          outline: none;
-          transition: all 0.3s ease;
+          min-height: 50px;
+          max-height: 300px;
           
           &:focus {
+            outline: none;
             border-color: #1890ff;
             box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
           }
@@ -1534,9 +1511,8 @@ export default {
         
         .sql-actions {
           display: flex;
-          justify-content: flex-end;
+          justify-content: space-between;
           align-items: center;
-          gap: 16px;
           
           .sql-options {
             display: flex;
@@ -1593,6 +1569,7 @@ export default {
         }
       }
     }
+  }
 
   // 复制成功提示样式
   .toast {
