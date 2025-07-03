@@ -1,3 +1,58 @@
+# JSPlumb Data Lineage Visualization
+
+A data lineage visualization tool built with Vue.js and Python Flask.
+
+## Quick Start with Docker
+
+### Prerequisites
+- Docker
+- Docker Compose
+
+### Running the Application
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd jsplumb-dataLineage-vue-vue3
+```
+
+2. Start the application:
+```bash
+docker-compose up -d
+```
+
+3. Access the application:
+- Frontend: http://localhost
+- Backend API: http://localhost:5000
+
+### Stopping the Application
+```bash
+docker-compose down
+```
+
+## Development Setup
+
+If you want to develop the application locally, you'll need:
+
+### Frontend
+- Node.js
+- npm
+
+```bash
+npm install
+npm run serve
+```
+
+### Backend
+- Python 3.10+
+- pip
+
+```bash
+cd api
+pip install -r requirements.txt
+python server.py
+```
+
 # jsplumb-dataLineage-vue3
 
 - vue3 + vite4 

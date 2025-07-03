@@ -2,42 +2,52 @@
   "edges": [
     {
       "from": {
-        "field": "user_id",
-        "name": "raw_users"
+        "field": "id",
+        "name": "user1"
       },
       "to": {
-        "field": "user_id",
-        "name": "tmp_active_users"
+        "field": "id",
+        "name": "user_data"
       }
     },
     {
       "from": {
-        "field": "order_id",
-        "name": "raw_orders"
+        "field": "name",
+        "name": "user1"
       },
       "to": {
-        "field": "order_id",
-        "name": "tmp_active_users"
+        "field": "name",
+        "name": "user_data"
       }
     },
     {
       "from": {
-        "field": "user_id",
-        "name": "tmp_active_users"
+        "field": "address",
+        "name": "user2"
       },
       "to": {
-        "field": "user_id",
-        "name": "user_order_summary"
+        "field": "address",
+        "name": "user_data"
       }
     },
     {
       "from": {
-        "field": "total_amount",
-        "name": "tmp_active_users"
+        "field": "address",
+        "name": "address"
       },
       "to": {
-        "field": "total_amount",
-        "name": "user_order_summary"
+        "field": "address",
+        "name": "user2"
+      }
+    },
+    {
+      "from": {
+        "field": "id",
+        "name": "address"
+      },
+      "to": {
+        "field": "id",
+        "name": "user2"
       }
     }
   ],
@@ -45,82 +55,61 @@
     {
       "fields": [
         {
-          "name": "user_id"
+          "name": "id"
         },
         {
-          "name": "username"
-        },
-        {
-          "name": "email"
-        },
-        {
-          "name": "created_at"
+          "name": "name"
         }
       ],
       "left": 50,
-      "name": "raw_users",
+      "name": "user1",
       "top": 50,
       "type": "Origin"
     },
     {
       "fields": [
         {
-          "name": "order_id"
+          "name": "address"
         },
         {
-          "name": "user_id"
-        },
-        {
-          "name": "amount"
-        },
-        {
-          "name": "order_date"
+          "name": "id"
         }
       ],
       "left": 50,
-      "name": "raw_orders",
+      "name": "address",
       "top": 250,
       "type": "Origin"
     },
     {
       "fields": [
         {
-          "name": "user_id"
+          "name": "address"
         },
         {
-          "name": "order_id"
-        },
-        {
-          "name": "total_amount"
-        },
-        {
-          "name": "last_order_date"
+          "name": "id"
         }
       ],
       "left": 400,
-      "name": "tmp_active_users",
+      "name": "user2",
       "top": 150,
-      "type": "TMP"
+      "type": "Middle"
     },
     {
       "fields": [
         {
-          "name": "user_id"
+          "name": "id"
         },
         {
-          "name": "total_amount"
+          "name": "name"
         },
         {
-          "name": "order_count"
-        },
-        {
-          "name": "last_activity"
+          "name": "address"
         }
       ],
       "left": 750,
-      "name": "user_order_summary",
+      "name": "user_data",
       "top": 150,
-      "type": "Target"
+      "type": "RS"
     }
   ]
 }

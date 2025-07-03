@@ -35,58 +35,87 @@ def get_lineage_json_from_parsed_output(
         dict: 包含 'edges' 和 'nodes' 列表的字典。
     """
     try:
-        runner = LineageRunner(
-            sql=sql_query,
-            verbose=False
-        )
-        # --- DEBUG PRINT: sqllineage 原始解析结果 ---
-        print("\n--- DEBUG: sqllineage raw runner output ---")
-        print(f"Source Tables: {[str(t) for t in runner.source_tables]}")
-        print(f"Target Tables: {[str(t) for t in runner.target_tables]}")
-        print(f"Intermediate Tables (from runner): {[str(t) for t in runner.intermediate_tables]}")
-
-        raw_column_lineage_output = list(runner.get_column_lineage())  # Convert to list to print it
-        print(f"Raw Column Lineage (from runner.get_column_lineage()):")
-        for item in raw_column_lineage_output:
-            # Format for better readability
-            formatted_item = tuple(
-                f"{str(col.parent)}.{str(col).split('.')[-1]}" if col.parent else str(col) for col in item)
-            print(f"  {formatted_item}")
-        print("------------------------------------------")
-        # --- END DEBUG PRINT ---
+        # 修改：为每个SQL语句分别处理源表和目标表
+        statements = sql_query.strip().split(';')
+        statements = [stmt.strip() for stmt in statements if stmt.strip()]
         
-        # 从 runner 对象直接获取表级血缘信息
-        source_tables_names: Set[str] = {str(t) for t in runner.source_tables}
-        target_tables_names: Set[str] = {str(t) for t in runner.target_tables}
-
-        raw_edges: List[Tuple[str, str, str, str]] = []
-        # all_fields_in_raw_lineage 将包含所有被 sqllineage 识别到的表及其字段，无论它们是否有血缘连接
-        all_fields_in_raw_lineage: Dict[str, Set[str]] = collections.defaultdict(set)
-        
-        for col_lineage_path_tuple in raw_column_lineage_output:  # 使用捕获的列表
-            # 遍历 col_lineage_path_tuple 中的所有 Column 对象，捕获其表和字段
-            # 这样即使是孤立的列（元组长度为1），也能被记录下来
-            for col_obj in col_lineage_path_tuple:
-                if col_obj.parent is not None:
-                    table_name = str(col_obj.parent)
-                    field_name = str(col_obj).split('.')[-1]
-                    all_fields_in_raw_lineage[table_name].add(field_name)
+        # 存储每个语句的血缘关系
+        statement_lineages = []
+        for stmt in statements:
+            if not stmt:
+                continue
+                
+            runner = LineageRunner(
+                sql=stmt,
+                verbose=False
+            )
             
-            # 只有当元组长度 >= 2 时，才构成一个实际的血缘边
-            if len(col_lineage_path_tuple) >= 2:
-                for i in range(len(col_lineage_path_tuple) - 1):
-                    source_col = col_lineage_path_tuple[i]
-                    target_col = col_lineage_path_tuple[i + 1]
-                    from_table_name = str(source_col.parent) if source_col.parent is not None else ""
-                    to_table_name = str(target_col.parent) if target_col.parent is not None else ""
-                    from_field_name = str(source_col).split('.')[-1]
-                    to_field_name = str(target_col).split('.')[-1]
-                    if from_table_name and to_table_name:
-                        raw_edges.append((from_table_name, from_field_name, to_table_name, to_field_name))
-            else:
-                # 打印警告，但不再跳过，因为其表和字段已被 all_fields_in_raw_lineage 捕获
-                print(
-                    f"Warning: Column lineage item with length less than 2: {col_lineage_path_tuple}. Its table/field will be included but no direct edge will be formed from this item.")
+            # 获取当前语句的源表和目标表
+            current_source_tables = {str(t) for t in runner.source_tables}
+            current_target_tables = {str(t) for t in runner.target_tables}
+            
+            # 将当前语句的血缘信息添加到列表中
+            statement_lineages.append({
+                'sources': current_source_tables,
+                'targets': current_target_tables,
+                'runner': runner
+            })
+
+        # 合并所有语句的血缘信息
+        all_source_tables = set()
+        all_target_tables = set()
+        all_intermediate_tables = set()
+        
+        for lineage in statement_lineages:
+            all_source_tables.update(lineage['sources'])
+            all_target_tables.update(lineage['targets'])
+            all_intermediate_tables.update({str(t) for t in lineage['runner'].intermediate_tables})
+
+        # 处理表的类型
+        # 如果一个表在某个语句中是目标表，在另一个语句中是源表，将其标记为中间表
+        tables_as_both = all_source_tables.intersection(all_target_tables)
+        if tables_as_both:
+            all_source_tables.difference_update(tables_as_both)
+            all_target_tables.difference_update(tables_as_both)
+            all_intermediate_tables.update(tables_as_both)
+
+        # 更新原始的表集合
+        source_tables_names = all_source_tables
+        target_tables_names = all_target_tables
+        
+        # 重置血缘边收集
+        raw_edges = []
+        all_fields_in_raw_lineage = collections.defaultdict(set)
+        
+        # 从所有语句中收集列级血缘
+        for lineage in statement_lineages:
+            runner = lineage['runner']
+            current_sources = lineage['sources']
+            current_targets = lineage['targets']
+            
+            for col_lineage_path_tuple in list(runner.get_column_lineage()):
+                # 处理字段收集
+                for col_obj in col_lineage_path_tuple:
+                    if col_obj.parent is not None:
+                        table_name = str(col_obj.parent)
+                        field_name = str(col_obj).split('.')[-1]
+                        all_fields_in_raw_lineage[table_name].add(field_name)
+                
+                # 处理边收集
+                if len(col_lineage_path_tuple) >= 2:
+                    prev_table = None
+                    for col_obj in col_lineage_path_tuple:
+                        if col_obj.parent is not None:
+                            current_table = str(col_obj.parent)
+                            current_field = str(col_obj).split('.')[-1]
+                            
+                            if prev_table is not None and prev_table != current_table:
+                                # 确保不创建自引用边
+                                if prev_table != current_table:
+                                    raw_edges.append((prev_table, prev_field, current_table, current_field))
+                            
+                            prev_table = current_table
+                            prev_field = current_field
 
         # --- 动态识别所有中间表 (包括 CTE 和物理中间表) ---
         # 从所有在列血缘中出现的表中，排除 sqllineage 明确识别的源表和目标表，剩下的就是中间表
@@ -195,12 +224,24 @@ def get_lineage_json_from_parsed_output(
 
         # 将要渲染的边集合转换为列表
         edges_list_final = []
+        # 创建一个集合来跟踪已经添加的边
+        added_edges = set()
+        
         # 排序以保持输出一致性
         for from_t, from_f, to_t, to_f in sorted(list(edges_to_render)):
-            edges_list_final.append({
-                "from": {"field": from_f, "name": from_t},
-                "to": {"field": to_f, "name": to_t}
-            })
+            # 检查是否是自引用边
+            if from_t != to_t:
+                # 检查这条边是否已经添加过
+                edge_key = (from_t, from_f, to_t, to_f)
+                if edge_key not in added_edges:
+                    # 检查是否符合表的角色
+                    if ((from_t in source_tables_names or from_t in intermediate_tables_to_display) and
+                        (to_t in target_tables_names or to_t in intermediate_tables_to_display)):
+                        edges_list_final.append({
+                            "from": {"field": from_f, "name": from_t},
+                            "to": {"field": to_f, "name": to_t}
+                        })
+                        added_edges.add(edge_key)
 
         # --- 生成节点并计算布局 ---
         nodes_list_final = []
@@ -292,8 +333,8 @@ def get_lineage_json_from_parsed_output(
                 # 确定表的类型
                 table_type = (
                     "Origin" if table_name in source_tables_names
-                    else "Target" if table_name in target_tables_names
-                    else "Intermediate"
+                    else "RS" if table_name in target_tables_names
+                    else "Middle"
                 )
                 # 创建节点对象
                 node = {
