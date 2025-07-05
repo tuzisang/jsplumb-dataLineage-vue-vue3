@@ -2,13 +2,17 @@
   <div 
     class="table-node" 
     :style="[setCoordinate, setColor(node.type, 8620)]"
-    :class="{ 'table-node--disabled': isDisabled }"
+    :class="{ 
+      'table-node--disabled': isDisabled,
+      'table-node--table-mode': isTableMode
+    }"
     @mousedown.stop="handleMouseDown"
   >
     <!-- 表头：放置表名和复制按钮 -->
     <div 
       class="table-node-header"
       :style="setColor(node.type, 17)"
+      :class="{ 'table-highlighted': isTableHighlighted }"
     >
       <div 
         :id="`${node.name}${minus}`" 
@@ -25,17 +29,22 @@
         >
           <i class="hide-icon">👁️</i>
         </div>
-      <div 
-        class="copy-fields-btn"
-        @click.stop="handleCopyFields"
-        title="复制所有字段名"
-      >
-        <i class="copy-icon">📋</i>
+        <div 
+          v-if="!isTableMode && node.fields && node.fields.length > 0"
+          class="copy-fields-btn"
+          @click.stop="handleCopyFields"
+          title="复制所有字段名"
+        >
+          <i class="copy-icon">📋</i>
         </div>
       </div>
     </div>
     <!-- 表域：放置表字段 -->
-    <div :id="`${node.name}${minus}fields`" class="table-node-fields">
+    <div 
+      v-if="!isTableMode"
+      :id="`${node.name}${minus}fields`" 
+      class="table-node-fields"
+    >
       <div v-if="node.fields && node.fields.length === 0" class="empty-fields-notice">
         暂无字段信息
       </div>
@@ -92,11 +101,30 @@ export default {
     isHidden: {
       type: Boolean,
       default: false
+    },
+    isTableMode: {  // 新增：是否为表级分析模式
+      type: Boolean,
+      default: false
+    },
+    highlightedTables: {  // 新增：高亮的表名列表
+      type: Array,
+      default: () => []
     }
   },
   data() {
     return {
       minus: '-',
+    }
+  },
+  computed: {
+    setCoordinate() {
+      return {
+        top: this.node.top + "px",
+        left: this.node.left + "px",
+      };
+    },
+    isTableHighlighted() {  // 新增：判断表是否被高亮
+      return this.highlightedTables.includes(this.node.name);
     }
   },
   methods: {
@@ -133,16 +161,57 @@ export default {
         return;
       }
     },
-    // 处理表名点击事件
+    // 修改表名点击事件处理
     handleTableNameClick(event) {
       if (this.isDisabled) {
         event.stopPropagation();
         event.preventDefault();
         return;
       }
-      this.$emit('table-name-click', {
-        tableName: this.node.name
-      });
+      
+      // 复制表名到剪贴板
+      this.copyToClipboard(this.node.name);
+      
+      if (this.isTableMode) {
+        // 在表级模式下，触发表高亮事件
+        this.$emit('table-highlight', {
+          tableName: this.node.name
+        });
+      }
+    },
+    // 新增：复制到剪贴板的方法
+    copyToClipboard(text) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          this.$emit('copy-success', {
+            message: `表名 "${text}" 已复制到剪贴板`
+          });
+        }).catch(err => {
+          console.error('复制失败:', err);
+          this.fallbackCopyToClipboard(text);
+        });
+      } else {
+        this.fallbackCopyToClipboard(text);
+      }
+    },
+    // 新增：备用复制方法
+    fallbackCopyToClipboard(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        this.$emit('copy-success', {
+          message: `表名 "${text}" 已复制到剪贴板`
+        });
+      } catch (err) {
+        console.error('复制失败:', err);
+        this.$emit('copy-error', {
+          message: '复制失败，请重试'
+        });
+      }
+      document.body.removeChild(textArea);
     },
     // 处理字段点击事件
     handleFieldClick(fieldName, event) {
@@ -228,14 +297,6 @@ export default {
         );
       }
     }
-  },
-  computed: {
-    setCoordinate() {
-      return {
-        top: this.node.top + "px",
-        left: this.node.left + "px",
-      };
-    }
   }
 };
 </script>
@@ -247,63 +308,75 @@ export default {
   border: 2px solid #000;
   align-items: center;
   z-index: 9995;
-  border-radius: 6px 6px 0 0;
+  border-radius: 8px;
   background: #fff;
   min-width: 200px;
   background-color: #fff;
   border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  transition: opacity 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+
+  &--table-mode {
+    border-radius: 12px;
+    
+    .table-node-header {
+      border-radius: 12px;
+      
+      &.table-highlighted {
+        font-size: 15px;
+        font-weight: bold;
+        transform: scale(1.02);
+        transition: all 0.3s ease;
+      }
+    }
+    
+    .table-node-content {
+      display: none;  // 在表级模式下隐藏字段内容
+    }
+  }
 
   .table-node-header {
+    padding: 12px 16px;
+    border-radius: 8px 8px 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 32px;
-    padding: 0 12px;
-    background-color: #91c051;
-    color: white;
-    font-size: 13px;
-    border-radius: 4px 4px 0 0;
+    cursor: pointer;
     transition: all 0.3s ease;
     
-    .table-node-name {
-      font-weight: 600;
-      cursor: pointer;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      
-      &:hover {
-        opacity: 0.9;
-      }
+    &:hover {
+      opacity: 0.9;
     }
-
+    
+    .table-node-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      margin-right: 8px;
+      user-select: none;
+    }
+    
     .header-buttons {
       display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .hide-node-btn,
-    .copy-fields-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-      }
-
-      .hide-icon,
-      .copy-icon {
-        font-size: 14px;
+      gap: 8px;
+      
+      .hide-node-btn {
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .hide-icon {
+          font-size: 14px;
+          color: #fff;
+        }
       }
     }
   }
@@ -403,7 +476,7 @@ export default {
   &--disabled {
     pointer-events: none;
     cursor: default;
-    opacity: 0.1;
+    opacity: 0.5;
 
     .table-node-name,
     .hide-node-btn,

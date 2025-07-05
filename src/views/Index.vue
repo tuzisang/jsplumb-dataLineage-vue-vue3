@@ -14,13 +14,43 @@
     <!-- SQL面板 -->
     <div class="sql-panel" :class="{ 'sql-panel--minimized': isMinimized }">
       <div class="sql-editor" v-show="!isMinimized">
-        <textarea 
-          v-model="sqlQuery" 
-          placeholder="请输入 SQL 查询语句..."
-          class="sql-textarea"
-        ></textarea>
+        <div class="sql-textarea-wrapper">
+          <textarea 
+            v-model="sqlQuery" 
+            placeholder="请输入 SQL 查询语句..."
+            class="sql-textarea"
+          ></textarea>
+          <button 
+            v-if="sqlQuery.trim()"
+            class="clear-sql-btn"
+            @click="clearSqlQuery"
+            title="清空 SQL"
+          >
+            <span class="clear-icon">✕</span>
+          </button>
+        </div>
         <div class="sql-actions">
           <div class="sql-options">
+            <!-- 添加血缘分析级别选择 -->
+            <div class="lineage-level-selector">
+              <span class="option-label">血缘分析级别：</span>
+              <label class="radio-label">
+                <input 
+                  type="radio" 
+                  v-model="lineageLevel" 
+                  value="table"
+                >
+                <span class="radio-text">表级</span>
+              </label>
+              <label class="radio-label">
+                <input 
+                  type="radio" 
+                  v-model="lineageLevel" 
+                  value="column"
+                >
+                <span class="radio-text">列级</span>
+              </label>
+            </div>
             <label class="option-label">
               <input 
                 type="checkbox" 
@@ -161,12 +191,15 @@
             :id="node.name"
             :node="node"
             :highlighted-fields="highlightedFields"
+            :highlighted-tables="highlightedTables"
             :style="getNodeVisibility(node)"
             :is-disabled="isNodeDisabled(node)"
             :is-hidden="hiddenNodes.has(node.name)"
+            :is-table-mode="lineageLevel === 'table'"
             :edges="json.edges"
             @field-click="handleFieldClick"
             @table-name-click="handleTableNameClick"
+            @table-highlight="handleTableHighlight"
             @copy-success="handleCopySuccess"
             @copy-error="handleCopyError"
             @hide-node="handleNodeVisibility"
@@ -292,6 +325,7 @@ export default {
         nodes: [],
         edges: []
       },
+      lineageLevel: 'column', // 默认为列级分析
       commConfig: commConfig,
       auxiliaryLine: {isShowXLine: false, isShowYLine: false},
       auxiliaryLinePos: {width: '100%', height: '100%', offsetX: 0, offsetY: 0, x: 20, y: 20},
@@ -328,7 +362,8 @@ export default {
       maxPanelWidth: 600,
       includeIntermediateTables: false,
       filterCtes: false,
-      isMinimized: false
+      isMinimized: false,
+      highlightedTables: [], // 新增：存储高亮的表名
     };
   },
   mounted() {
@@ -741,11 +776,11 @@ export default {
     },
     // 高亮连接线
     highlightConnections(relatedFields) {
-      if (!this.jsplumbInstance) return;
+      if (!this.jsplumbInstance || this.lineageLevel === 'table') return;
       
       const allConnections = this.jsplumbInstance.getAllConnections();
       
-      // 重置所有连接线样式为默认样式
+      // 重置所有连接线样式
       allConnections.forEach(conn => {
         conn.setPaintStyle(this.commConfig.PaintStyle);
       });
@@ -757,7 +792,6 @@ export default {
         const sourceField = conn.sourceId.split(this.minus)[1];
         const targetField = conn.targetId.split(this.minus)[1];
         
-        // 检查源端点或目标端点是否在相关字段中
         const isSourceRelated = relatedFields.some(f => 
           f.tableName === sourceId && f.fieldName === sourceField
         );
@@ -765,7 +799,6 @@ export default {
           f.tableName === targetId && f.fieldName === targetField
         );
         
-        // 只要连接线的任一端点在相关字段中就高亮显示
         if (isSourceRelated || isTargetRelated) {
           conn.setPaintStyle(this.commConfig.HoverPaintStyle);
           if (this.showOnlyCriticalPath) {
@@ -851,7 +884,6 @@ export default {
 
       this.isAnalyzing = true;
       try {
-        // 使用完整的 API URL
         const apiUrl = import.meta.env.VITE_API_URL || '/api/lineage';
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -861,7 +893,8 @@ export default {
           body: JSON.stringify({
             sql_query: this.sqlQuery,
             include_intermediate_tables: this.includeIntermediateTables,
-            filter_ctes: this.filterCtes
+            filter_ctes: this.filterCtes,
+            lineage_level: this.lineageLevel // 添加血缘分析级别参数
           })
         });
 
@@ -889,39 +922,48 @@ export default {
     updateCriticalPath() {
       this.criticalPathNodes.clear();
       
-      // 如果没有高亮字段，不需要继续处理
-      if (this.highlightedFields.length === 0) return;
+      if (this.lineageLevel === 'table') {
+        // 表级模式：如果有高亮的表，则只显示高亮的表及其相关表
+        if (this.highlightedTables.length > 0) {
+          this.highlightedTables.forEach(tableName => {
+            this.criticalPathNodes.add(tableName);
+          });
+        }
+      } else {
+        // 列级模式：如果没有高亮字段，不需要继续处理
+        if (this.highlightedFields.length === 0) return;
 
-      // 获取所有相关的表
-      this.highlightedFields.forEach(field => {
-        this.criticalPathNodes.add(field.tableName);
-      });
-
-      // 递归查找上游节点和边
-      const findUpstream = (tableName, fieldName) => {
-        this.json.edges.forEach(edge => {
-          if (edge.to.name === tableName && edge.to.field === fieldName) {
-            this.criticalPathNodes.add(edge.from.name);
-            findUpstream(edge.from.name, edge.from.field);
-          }
+        // 获取所有相关的表
+        this.highlightedFields.forEach(field => {
+          this.criticalPathNodes.add(field.tableName);
         });
-      };
 
-      // 递归查找下游节点和边
-      const findDownstream = (tableName, fieldName) => {
-        this.json.edges.forEach(edge => {
-          if (edge.from.name === tableName && edge.from.field === fieldName) {
-            this.criticalPathNodes.add(edge.to.name);
-            findDownstream(edge.to.name, edge.to.field);
-          }
+        // 递归查找上游节点和边
+        const findUpstream = (tableName, fieldName) => {
+          this.json.edges.forEach(edge => {
+            if (edge.to.name === tableName && edge.to.field === fieldName) {
+              this.criticalPathNodes.add(edge.from.name);
+              findUpstream(edge.from.name, edge.from.field);
+            }
+          });
+        };
+
+        // 递归查找下游节点和边
+        const findDownstream = (tableName, fieldName) => {
+          this.json.edges.forEach(edge => {
+            if (edge.from.name === tableName && edge.from.field === fieldName) {
+              this.criticalPathNodes.add(edge.to.name);
+              findDownstream(edge.to.name, edge.to.field);
+            }
+          });
+        };
+
+        // 对每个高亮字段查找其上下游
+        this.highlightedFields.forEach(field => {
+          findUpstream(field.tableName, field.fieldName);
+          findDownstream(field.tableName, field.fieldName);
         });
-      };
-
-      // 对每个高亮字段查找其上下游
-      this.highlightedFields.forEach(field => {
-        findUpstream(field.tableName, field.fieldName);
-        findDownstream(field.tableName, field.fieldName);
-      });
+      }
 
       // 更新jsPlumb实例中节点的可拖动状态
       this.$nextTick(() => {
@@ -930,16 +972,27 @@ export default {
             this.jsplumbInstance.setDraggable(node.name, true);
           } else {
             this.jsplumbInstance.setDraggable(node.name, false);
-            // 应用节点可见性，这会自动处理相关连接线的可见性
-            this.getNodeVisibility(node);
           }
+          // 应用节点可见性，这会自动处理相关连接线的可见性
+          this.getNodeVisibility(node);
         });
+
+        // 根据模式选择合适的高亮方式
+        if (this.lineageLevel === 'table') {
+          this.highlightTableConnections(Array.from(this.criticalPathNodes));
+        } else {
+          this.highlightConnections(this.highlightedFields);
+        }
       });
     },
     // 处理关键路径显示切换
     handleCriticalPathToggle() {
-      if (this.showOnlyCriticalPath && this.highlightedFields.length > 0) {
-        this.updateCriticalPath();
+      if (this.showOnlyCriticalPath) {
+        if (this.lineageLevel === 'table' && this.highlightedTables.length > 0) {
+          this.updateCriticalPath();
+        } else if (this.lineageLevel === 'column' && this.highlightedFields.length > 0) {
+          this.updateCriticalPath();
+        }
       } else {
         this.criticalPathNodes.clear();
         // 恢复所有节点的可拖动状态和连接线的显示
@@ -950,14 +1003,22 @@ export default {
         const allConnections = this.jsplumbInstance.getAllConnections();
         allConnections.forEach(conn => {
           conn.setVisible(true);
+          conn.setPaintStyle(this.commConfig.PaintStyle);
         });
       }
-      // 重新应用节点可见性，这会自动处理相关连接线的可见性
+
+      // 重新应用节点可见性
       this.$nextTick(() => {
         this.json.nodes.forEach(node => {
           this.getNodeVisibility(node);
         });
-        this.highlightConnections(this.highlightedFields);
+        
+        // 根据模式重新应用高亮
+        if (this.lineageLevel === 'table' && this.highlightedTables.length > 0) {
+          this.highlightTableConnections(this.highlightedTables);
+        } else if (this.lineageLevel === 'column' && this.highlightedFields.length > 0) {
+          this.highlightConnections(this.highlightedFields);
+        }
       });
     },
     // 聚焦到下一个字段
@@ -1410,6 +1471,10 @@ export default {
         // 清理现有画布
         this.cleanupCanvas();
         
+        // 清除所有高亮状态
+        this.highlightedFields = [];
+        this.highlightedTables = [];
+        
         // 更新数据
         this.json.nodes = data.nodes;
         this.json.edges = data.edges;
@@ -1419,7 +1484,74 @@ export default {
       } finally {
         this.isAnalyzing = false;
       }
-    }
+    },
+
+    // 新增：处理表级高亮
+    handleTableHighlight(data) {
+      const { tableName } = data;
+      
+      // 清除之前的高亮
+      this.highlightedTables = [];
+      this.highlightedFields = [];
+      
+      // 添加新的高亮表
+      this.highlightedTables.push(tableName);
+      
+      // 找到与该表相关的所有表（上下游）
+      const relatedTables = new Set([tableName]);
+      
+      // 遍历边找相关表
+      this.json.edges.forEach(edge => {
+        if (edge.from.name === tableName) {
+          relatedTables.add(edge.to.name);
+        }
+        if (edge.to.name === tableName) {
+          relatedTables.add(edge.from.name);
+        }
+      });
+      
+      // 更新高亮表集合
+      this.highlightedTables = Array.from(relatedTables);
+      
+      // 高亮相关的连接线
+      this.$nextTick(() => {
+        this.highlightTableConnections(this.highlightedTables);
+      });
+    },
+
+    // 修改：高亮表级连接线
+    highlightTableConnections(highlightedTables) {
+      if (!this.jsplumbInstance) return;
+      
+      const allConnections = this.jsplumbInstance.getAllConnections();
+      
+      // 重置所有连接线样式
+      allConnections.forEach(conn => {
+        conn.setPaintStyle(this.commConfig.PaintStyle);
+        conn.setHoverPaintStyle(this.commConfig.HoverPaintStyle);
+      });
+      
+      // 高亮相关连接线
+      allConnections.forEach(conn => {
+        const sourceId = conn.sourceId.split(this.minus)[0];
+        const targetId = conn.targetId.split(this.minus)[0];
+        
+        // 如果连接线的两端都在高亮表集合中，则高亮该连接线
+        if (highlightedTables.includes(sourceId) && highlightedTables.includes(targetId)) {
+          conn.setPaintStyle(this.commConfig.HoverPaintStyle);
+        }
+      });
+    },
+
+    // 新增：清空 SQL 查询
+    clearSqlQuery() {
+      this.sqlQuery = '';
+      // 聚焦回输入框
+      const textarea = document.querySelector('.sql-textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+    },
   }
 };
 </script>
@@ -1489,23 +1621,62 @@ export default {
         flex-direction: column;
         gap: 12px;
         
-        .sql-textarea {
+        .sql-textarea-wrapper {
+          position: relative;
           width: 90%;
-          height: 60px;  // 调整回原来的高度
-          padding: 12px;
-          border: 1px solid #ddd;
-          border-radius: 6px;
-          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-          font-size: 12px;
-          line-height: 1.5;
-          resize: vertical;
-          min-height: 50px;
-          max-height: 300px;
           
-          &:focus {
-            outline: none;
-            border-color: #1890ff;
-            box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+          .sql-textarea {
+            width: 100%;
+            height: 60px;
+            padding: 12px;
+            padding-right: 36px; // 为清空按钮留出空间
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 50px;
+            max-height: 300px;
+            
+            &:focus {
+              outline: none;
+              border-color: #1890ff;
+              box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+            }
+          }
+          
+          .clear-sql-btn {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            color: #999;
+            transition: all 0.3s ease;
+            
+            &:hover {
+              background-color: #f0f0f0;
+              color: #666;
+            }
+            
+            &:active {
+              background-color: #e6e6e6;
+              transform: scale(0.95);
+            }
+            
+            .clear-icon {
+              font-size: 14px;
+              line-height: 1;
+            }
           }
         }
         
@@ -2374,5 +2545,42 @@ export default {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.lineage-level-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 16px;
+  
+  .option-label {
+    font-size: 14px;
+    color: #333;
+    margin-right: 8px;
+  }
+  
+  .radio-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    
+    input[type="radio"] {
+      margin: 0;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    
+    .radio-text {
+      font-size: 14px;
+      color: #333;
+    }
+    
+    &:hover .radio-text {
+      color: #1890ff;
+    }
+  }
 }
 </style>
