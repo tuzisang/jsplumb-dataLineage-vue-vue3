@@ -294,6 +294,11 @@
         @mousedown="startResize"
       ></div>
     </div>
+
+    <!-- 作者署名 -->
+    <div class="author-signature">
+      <span>作者：Tzz</span>
+    </div>
   </div>
 </template>
 
@@ -2581,6 +2586,29 @@ export default {
     &:hover .radio-text {
       color: #1890ff;
     }
+  }
+}
+
+/* 作者署名样式 */
+.author-signature {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  color: #666;
+  z-index: 1000;
+  
+  span {
+    font-weight: 500;
+  }
+  
+  &:hover {
+    background-color: rgba(255, 255, 255, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
 </style>

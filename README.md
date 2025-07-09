@@ -1,75 +1,104 @@
-# JSPlumb Data Lineage Visualization
+# 数据血缘关系可视化工具
 
-A data lineage visualization tool built with Vue.js and Python Flask.
+这是一个基于 Vue.js 和 Python Flask 开发的数据血缘关系可视化工具。
 
-## Quick Start with Docker
+## 项目介绍
 
-### Prerequisites
+本项目旨在帮助用户直观地展示和分析数据之间的血缘关系。通过可视化的方式，用户可以清晰地了解数据流转过程和依赖关系。
+
+### 技术栈
+
+#### 前端
+- Vue 3
+- JSPlumb：用于绘制流程图和连接线
+- TypeScript
+- Vite 4
+
+#### 后端
+- Python Flask
+- SQLLineage：用于SQL解析和血缘关系分析
+- NetworkX：用于图形数据结构处理
+
+### 主要功能
+- 数据表血缘关系可视化
+- 支持拖拽式节点布局
+- 自动解析SQL语句生成血缘关系
+- 支持多种数据库类型
+- 可自定义节点样式和连接线样式
+
+## Docker 快速启动
+
+### 环境要求
 - Docker
 - Docker Compose
 
-### Running the Application
+### 启动步骤
 
-1. Clone the repository:
+1. 克隆仓库：
 ```bash
-git clone <repository-url>
+git clone <仓库地址>
 cd jsplumb-dataLineage-vue-vue3
 ```
 
-2. Start the application:
+2. 启动应用：
 ```bash
 docker-compose up -d
 ```
 
-3. Access the application:
-- Frontend: http://localhost
-- Backend API: http://localhost:5000
+3. 访问应用：
+- 前端界面：http://localhost:8620
+- 后端API：http://localhost:5000
 
-### Stopping the Application
+### 停止应用
 ```bash
 docker-compose down
 ```
 
-## Development Setup
+## 本地开发环境搭建
 
-If you want to develop the application locally, you'll need:
+如果您想在本地进行开发，需要以下环境：
 
-### Frontend
+### 前端环境
 - Node.js
 - npm
 
+前端启动步骤：
 ```bash
+# 安装依赖
 npm install
-npm run serve
+
+# 启动开发服务器
+npm run dev
 ```
 
-### Backend
+### 后端环境
 - Python 3.10+
 - pip
 
+后端启动步骤：
 ```bash
+# 进入后端目录
 cd api
+
+# 安装依赖
 pip install -r requirements.txt
+
+# 启动服务器
 python server.py
 ```
 
-# jsplumb-dataLineage-vue3
+## 项目预览
 
-- vue3 + vite4 
-- 由于不熟悉 vue3 和 ts 所以该版本没有左侧按钮提供方法。请参考master分支的vue2版本自行编写。
+![数据血缘关系示例](src/assets/sample.png)
 
-![图片](https://github.com/mizuhokaga/jsplumb-dataLineage-vue/blob/vue3/src/assets/sample.png)
+## 开发说明
 
-## Project Setup
+- 本项目使用 Vue 3 + TypeScript 开发
+- 使用 JSPlumb 实现节点之间的连接和交互
+- 后端基于 SQLLineage 进行二次开发，实现 SQL 解析和血缘分析
+- 支持自定义节点样式和连接线样式
+- 提供完整的 API 接口文档
 
-```sh
-npm install
-```
+## 浏览器访问
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run servce
-```
-
-浏览器访问 http://localhost:8620
+开发环境下访问：http://localhost:8620
