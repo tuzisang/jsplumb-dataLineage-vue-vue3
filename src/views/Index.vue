@@ -705,9 +705,70 @@ export default {
       this.showDropdown = false;
     },
     // 选择字段
-    selectField(field) {
+    async selectField(field) {
       this.highlightFieldLineage(field.tableName, field.fieldName);
       this.showDropdown = false;
+
+      // 获取目标字段元素
+      const fieldId = `${field.tableName}${this.minus}${field.fieldName}`;
+      const fieldElement = document.getElementById(fieldId);
+      
+      if (!fieldElement) return;
+
+      // 获取panzoom实例
+      const pan = this.jsplumbInstance.pan;
+      if (!pan) return;
+
+      // 1. 设置固定缩放比例
+      const targetZoom = 1.2;
+      const currentTransform = pan.getTransform();
+      const currentZoom = currentTransform.scale;
+      
+      // 如果当前缩放不是目标缩放，先设置缩放
+      if (Math.abs(currentZoom - targetZoom) > 0.01) {
+        const zoomRatio = targetZoom / currentZoom;
+        pan.zoomTo(0, 0, zoomRatio);
+        // 等待缩放动作完成
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // 2. 获取容器和元素的位置信息
+      const mainContainer = this.jsplumbInstance.getContainer();
+      const containerRect = mainContainer.getBoundingClientRect();
+      const fieldRect = fieldElement.getBoundingClientRect();
+
+      // 3. 计算目标位置（考虑当前缩放和偏移）
+      const containerCenterX = containerRect.width / 2;
+      const containerCenterY = containerRect.height / 2;
+      
+      // 计算字段在容器中的相对位置
+      const fieldCenterX = fieldRect.left + fieldRect.width / 2 - containerRect.left;
+      const fieldCenterY = fieldRect.top + fieldRect.height / 2 - containerRect.top;
+      
+      // 计算需要移动的距离，使字段居中
+      const targetX = containerCenterX - fieldCenterX;
+      const targetY = containerCenterY - fieldCenterY;
+
+      // 4. 添加动画效果
+      const tableFlow = document.querySelector('.table-flow');
+      if (tableFlow) {
+        tableFlow.classList.add('camera-animate');
+      }
+
+      // 5. 移动到目标位置
+      pan.moveTo(targetX, targetY);
+
+      // 6. 添加字段高亮动画
+      fieldElement.classList.add('field-focus-animation');
+      
+      // 7. 清理动画类
+      setTimeout(() => {
+        if (tableFlow) {
+          tableFlow.classList.remove('camera-animate');
+        }
+        fieldElement.classList.remove('field-focus-animation');
+        this.jsplumbInstance.repaintEverything();
+      }, 500);
     },
     // 点击外部关闭下拉框
     handleClickOutside(event) {
