@@ -34,25 +34,13 @@
 
 ### 启动步骤
 
-1. 克隆仓库：
+克隆仓库：
 ```bash
 git clone <仓库地址>
 cd jsplumb-dataLineage-vue-vue3
 ```
 
-2. 启动应用：
-```bash
-docker-compose up -d
-```
 
-3. 访问应用：
-- 前端界面：http://localhost:8620
-- 后端API：http://localhost:5000
-
-### 停止应用
-```bash
-docker-compose down
-```
 
 ## 本地开发环境搭建
 
