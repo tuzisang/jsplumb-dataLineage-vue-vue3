@@ -4,21 +4,26 @@
   <div class="sql-container">
     <!-- 最小化按钮单独放置 -->
     <button 
-      class="minimize-btn"
+      class="minimize-btn modern"
       @click="toggleMinimize"
       :title="isMinimized ? '展开' : '最小化'"
     >
-      {{ isMinimized ? '↑' : '↓' }}
+      <svg v-if="isMinimized" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7 14l5-5 5 5" stroke="#1890ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7 10l5 5 5-5" stroke="#1890ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     </button>
     
     <!-- SQL面板 -->
     <div class="sql-panel" :class="{ 'sql-panel--minimized': isMinimized }">
       <div class="sql-editor" v-show="!isMinimized">
-        <div class="sql-textarea-wrapper">
+        <div class="sql-textarea-wrapper compact">
           <textarea 
             v-model="sqlQuery" 
             placeholder="请输入 SQL 查询语句..."
-            class="sql-textarea"
+            class="sql-textarea compact"
           ></textarea>
           <button 
             v-if="sqlQuery.trim()"
@@ -29,10 +34,9 @@
             <span class="clear-icon">✕</span>
           </button>
         </div>
-        <div class="sql-actions">
-          <div class="sql-options">
-            <!-- 添加血缘分析级别选择 -->
-            <div class="lineage-level-selector">
+        <div class="sql-actions compact">
+          <div class="sql-options compact">
+            <div class="lineage-level-selector compact">
               <span class="option-label">血缘分析级别：</span>
               <label class="radio-label">
                 <input 
@@ -51,14 +55,14 @@
                 <span class="radio-text">列级</span>
               </label>
             </div>
-            <label class="option-label">
+            <label class="option-label compact">
               <input 
                 type="checkbox" 
                 v-model="includeIntermediateTables"
               >
               <span class="option-text">显示中间表</span>
             </label>
-            <label class="option-label">
+            <label class="option-label compact">
               <input 
                 type="checkbox" 
                 v-model="filterCtes"
@@ -67,7 +71,7 @@
             </label>
           </div>
           <button 
-            class="analyze-btn"
+            class="analyze-btn compact"
             @click="analyzeSql"
             :disabled="!sqlQuery.trim() || isAnalyzing"
           >
@@ -123,59 +127,6 @@
         />
         <span class="toggle-label">仅显示关键路径</span>
       </label>
-    </div>
-
-    <!-- 高级搜索面板 -->
-    <div class="advanced-search">
-      <div class="search-panel">
-        <div class="search-header">
-          <!-- 搜索框 -->
-          <div class="search-box">
-            <i class="search-icon">🔍</i>
-            <input 
-              v-model="searchQuery" 
-              @input="handleSearch"
-              @focus="showDropdown = true"
-              @keydown.esc="clearSearch"
-              placeholder="搜索字段..."
-              class="search-input"
-            />
-            <button 
-              v-if="searchQuery" 
-              @click="clearSearch" 
-              class="clear-search-btn"
-              title="清除搜索"
-            >✕</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 搜索结果下拉框 -->
-      <div 
-        v-if="showDropdown && filteredFields.length > 0" 
-        class="search-dropdown"
-      >
-        <div class="dropdown-header">
-          <span>搜索结果 ({{ filteredFields.length }})</span>
-        </div>
-        <div class="dropdown-list">
-          <div 
-            v-for="field in filteredFields" 
-            :key="`${field.tableName}-${field.fieldName}`"
-            @click="selectField(field)"
-            class="dropdown-item"
-          >
-            <div class="item-header">
-              <span 
-                class="table-type-indicator"
-                :style="{ backgroundColor: getTableColor(getTableType(field.tableName)) }"
-              ></span>
-              <span class="table-name">{{ field.tableName }}</span>
-            </div>
-            <span class="field-name">{{ field.fieldName }}</span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="flow-wrapper" ref="flowWrap">
@@ -250,12 +201,15 @@
       class="node-list-panel"
       :style="{ width: panelWidth + 'px' }">
       <div class="panel-header">
-        <h3>节点列表</h3>
+        <h3>
+          <template v-if="listMode === 'table'">表列表</template>
+          <template v-else>字段列表</template>
+        </h3>
         <div class="panel-search">
           <input 
             type="text" 
             v-model="nodeSearchQuery" 
-            placeholder="搜索表名..."
+            :placeholder="listMode === 'table' ? '搜索表名...' : '搜索字段名...'"
             class="node-search-input"
             @input="handleNodeSearch"
           >
@@ -265,28 +219,56 @@
             @click="clearNodeSearch"
           >✕</span>
         </div>
+        <!-- 切换按钮 -->
+        <div class="list-toggle" style="margin-top:8px;">
+          <button 
+            :class="{active: listMode === 'table'}" 
+            @click="listMode = 'table'"
+            style="margin-right: 4px;"
+          >表</button>
+          <button 
+            :class="{active: listMode === 'field'}" 
+            @click="listMode = 'field'"
+          >字段</button>
+        </div>
       </div>
       <div class="node-list">
-        <div 
-          v-for="node in filteredNodeList" 
-          :key="node.name"
-          class="node-list-item"
-          :class="{
-            'node-hidden': hiddenNodes.has(node.name),
-            'node-focused': focusedNode === node.name,
-            'search-highlight': isNodeHighlighted(node)
-          }"
-          @click="focusOnNode(node)"
-        >
-          <span 
-            class="node-type-indicator"
-            :style="{ backgroundColor: getTableColor(node.type) }"
-          ></span>
-          <span class="node-name" v-html="highlightSearchText(node.name)"></span>
-          <span class="node-fields-count" v-if="node.fields">
-            {{ node.fields.length }}
-          </span>
-        </div>
+        <!-- 表模式 -->
+        <template v-if="listMode === 'table'">
+          <div 
+            v-for="node in filteredNodeList" 
+            :key="node.name"
+            class="node-list-item"
+            :class="{
+              'node-hidden': hiddenNodes.has(node.name),
+              'node-focused': focusedNode === node.name,
+              'search-highlight': isNodeHighlighted(node)
+            }"
+            @click="focusOnNode(node)"
+          >
+            <span 
+              class="node-type-indicator"
+              :style="{ backgroundColor: getTableColor(node.type) }"
+            ></span>
+            <span class="node-name" v-html="highlightSearchText(node.name)"></span>
+            <span class="node-fields-count">
+              {{ getTableReferenceCount(node.name) }}
+            </span>
+          </div>
+        </template>
+        <!-- 字段模式 -->
+        <template v-else>
+          <div 
+            v-for="field in filteredFieldList" 
+            :key="field.tableName + '-' + field.fieldName"
+            class="node-list-item"
+            @click="focusFieldFromList(field)"
+          >
+            <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(getTableType(field.tableName)) }"></span>
+            <span class="node-name">{{ field.tableName }}.{{ field.fieldName }}</span>
+            <span class="node-fields-count">{{ field.refCount }}</span>
+          </div>
+        </template>
       </div>
       <!-- 添加拖动调整宽度的把手 -->
       <div 
@@ -369,6 +351,7 @@ export default {
       filterCtes: false,
       isMinimized: false,
       highlightedTables: [], // 新增：存储高亮的表名
+      listMode: 'table', // 新增：表/字段切换
     };
   },
   mounted() {
@@ -398,20 +381,54 @@ export default {
       return this.json.nodes.some(node => node.type === 'Origin')
     },
     filteredNodeList() {
+      // 表模式下的表过滤
+      if (this.listMode !== 'table') return [];
+      let nodes = this.json.nodes.slice();
+      // 按引用次数降序
+      nodes.sort((a, b) => this.getTableReferenceCount(b.name) - this.getTableReferenceCount(a.name));
       if (!this.nodeSearchQuery) {
-        return this.json.nodes
+        return nodes;
       }
-      const query = this.nodeSearchQuery.toLowerCase()
-      return this.json.nodes.filter(node => {
-        const nodeName = node.name.toLowerCase()
-        return nodeName.includes(query)
+      const query = this.nodeSearchQuery.toLowerCase();
+      return nodes.filter(node => {
+        const nodeName = node.name.toLowerCase();
+        return nodeName.includes(query);
       }).sort((a, b) => {
-        const aStartsWith = a.name.toLowerCase().startsWith(query)
-        const bStartsWith = b.name.toLowerCase().startsWith(query)
-        if (aStartsWith && !bStartsWith) return -1
-        if (!aStartsWith && bStartsWith) return 1
-        return a.name.localeCompare(b.name)
-      })
+        // 先按引用次数降序，再按名称
+        const refDiff = this.getTableReferenceCount(b.name) - this.getTableReferenceCount(a.name);
+        if (refDiff !== 0) return refDiff;
+        const aStartsWith = a.name.toLowerCase().startsWith(query);
+        const bStartsWith = b.name.toLowerCase().startsWith(query);
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    },
+    filteredFieldList() {
+      // 字段模式下的字段过滤和引用计数
+      if (this.listMode !== 'field') return [];
+      let fields = [];
+      this.json.nodes.forEach(node => {
+        if (node.fields) {
+          node.fields.forEach(field => {
+            fields.push({
+              tableName: node.name,
+              fieldName: field.name,
+              refCount: this.getFieldReferenceCount(node.name, field.name)
+            });
+          });
+        }
+      });
+      // 搜索过滤
+      if (this.nodeSearchQuery) {
+        const query = this.nodeSearchQuery.toLowerCase();
+        fields = fields.filter(f =>
+          f.tableName.toLowerCase().includes(query) ||
+          f.fieldName.toLowerCase().includes(query)
+        );
+      }
+      // 按引用次数降序
+      return fields.sort((a, b) => b.refCount - a.refCount || a.tableName.localeCompare(b.tableName) || a.fieldName.localeCompare(b.fieldName));
     }
   },
   methods: {
@@ -1383,12 +1400,6 @@ export default {
       if (newWidth >= this.minPanelWidth && newWidth <= this.maxPanelWidth) {
         this.panelWidth = newWidth;
         this.lastMouseX = e.clientX;
-        
-        // 更新表类型图例的位置
-        const legend = document.querySelector('.table-type-legend');
-        if (legend) {
-          legend.style.left = (newWidth + 40) + 'px';
-        }
       }
     },
 
@@ -1440,6 +1451,10 @@ export default {
       // 更新聚焦状态
       this.focusedNode = node.name;
       
+      // 新增：表级模式下高亮表及其上下游链路
+      if (this.lineageLevel === 'table') {
+        this.handleTableHighlight({ tableName: node.name });
+      }
       // 获取panzoom实例
       const pan = this.jsplumbInstance.pan;
       if (!pan) return;
@@ -1618,6 +1633,28 @@ export default {
         textarea.focus();
       }
     },
+    // 表被引用次数（参与所有血缘关系的次数，无论是from还是to）
+    getTableReferenceCount(tableName) {
+      if (!this.json.edges || !Array.isArray(this.json.edges)) return 0;
+      return this.json.edges.filter(
+        edge =>
+          edge.to.name === tableName ||
+          edge.from.name === tableName
+      ).length;
+    },
+    // 字段被引用次数（参与所有血缘关系的次数，无论是from还是to）
+    getFieldReferenceCount(tableName, fieldName) {
+      if (!this.json.edges || !Array.isArray(this.json.edges)) return 0;
+      return this.json.edges.filter(
+        edge =>
+          (edge.to.name === tableName && edge.to.field === fieldName) ||
+          (edge.from.name === tableName && edge.from.field === fieldName)
+      ).length;
+    },
+    // 字段模式下点击字段定位
+    focusFieldFromList(field) {
+      this.selectField(field);
+    },
   }
 };
 </script>
@@ -1632,45 +1669,67 @@ export default {
   .sql-container {
     position: fixed;
     left: 50%;
-    bottom: 20px;
+    bottom: 32px;
     transform: translateX(-50%);
     z-index: 10001;
-    width: 30%;  // 改回30%宽度
-    max-width: 800px;
+    width: 420px;
+    min-width: 320px;
+    max-width: 95vw;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+    padding: 0 0 12px 0;
+    transition: box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    border: 1.5px solid #e6e6e6;
     
-    // 最小化按钮样式
-    .minimize-btn {
+    // 最小化按钮现代风格
+    .minimize-btn.modern {
       position: absolute;
-      top: -32px;
-      right: 0;
-      width: 32px;
-      height: 32px;
+      top: -38px;
+      right: 8px;
+      width: 38px;
+      height: 38px;
       border: none;
-      border-radius: 4px 4px 0 0;
-      background: white;
-      color: #666;
-      cursor: pointer;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #e6f0ff 0%, #f5faff 100%);
+      box-shadow: 0 2px 12px rgba(24,144,255,0.10), 0 1.5px 6px rgba(0,0,0,0.07);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-      transition: all 0.3s ease;
-      z-index: 10002; // 确保按钮始终在最上层
-      
+      cursor: pointer;
+      z-index: 10002;
+      transition: background 0.22s, box-shadow 0.22s, transform 0.12s;
+      outline: none;
+      border: 1.5px solid #e6e6e6;
+      svg {
+        display: block;
+        margin: 0 auto;
+        transition: stroke 0.2s;
+      }
       &:hover {
-        background: #f5f5f5;
-        color: #333;
+        background: linear-gradient(135deg, #d0e7ff 0%, #e6f7ff 100%);
+        box-shadow: 0 4px 18px rgba(24,144,255,0.16), 0 2px 8px rgba(0,0,0,0.10);
+        svg path {
+          stroke: #096dd9;
+        }
+      }
+      &:active {
+        transform: scale(0.93);
+        background: linear-gradient(135deg, #b3d8ff 0%, #e6f7ff 100%);
       }
     }
     
     // SQL面板样式
     .sql-panel {
       width: 100%;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-      padding: 16px;
-      transition: all 0.3s ease;
+      background: transparent;
+      border-radius: 0 0 18px 18px;
+      box-shadow: none;
+      padding: 0;
+      transition: all 0.3s;
       
       // 最小化状态样式
       &--minimized {
@@ -1685,37 +1744,47 @@ export default {
       .sql-editor {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        
+        gap: 0;
+        background: #f8fafd;
+        border-radius: 0 0 18px 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        padding: 12px 14px 8px 14px;
+        // 紧凑模式
+        &.compact {
+          padding: 8px 10px 4px 10px;
+        }
         .sql-textarea-wrapper {
           position: relative;
-          width: 90%;
-          
+          width: 100%;
+          &.compact {
+            margin-bottom: 6px;
+          }
           .sql-textarea {
             width: 100%;
-            height: 60px;
-            padding: 12px;
-            padding-right: 36px; // 为清空按钮留出空间
-            border: 1px solid #ddd;
+            min-width: 0;
+            box-sizing: border-box;
+            height: 48px;
+            padding: 8px 32px 8px 8px;
+            border: 1.2px solid #e6e6e6;
             border-radius: 6px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-            font-size: 12px;
+            font-size: 13px;
             line-height: 1.5;
             resize: vertical;
-            min-height: 50px;
-            max-height: 300px;
-            
-            &:focus {
-              outline: none;
-              border-color: #1890ff;
-              box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+            min-height: 36px;
+            max-height: 180px;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            &.compact {
+              height: 36px;
+              min-height: 32px;
+              font-size: 13px;
+              padding: 6px 28px 6px 8px;
             }
           }
-          
           .clear-sql-btn {
             position: absolute;
-            right: 8px;
-            top: 8px;
+            right: 6px;
+            top: 6px;
             width: 20px;
             height: 20px;
             border: none;
@@ -1725,82 +1794,114 @@ export default {
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            padding: 0;
             color: #999;
-            transition: all 0.3s ease;
-            
+            transition: all 0.2s;
+            font-size: 13px;
             &:hover {
               background-color: #f0f0f0;
               color: #666;
             }
-            
             &:active {
               background-color: #e6e6e6;
               transform: scale(0.95);
             }
-            
             .clear-icon {
-              font-size: 14px;
+              font-size: 13px;
               line-height: 1;
             }
           }
         }
-        
         .sql-actions {
           display: flex;
-          justify-content: space-between;
+          flex-direction: row;
           align-items: center;
-          
+          justify-content: space-between;
+          margin-top: 2px;
+          gap: 8px;
+          &.compact {
+            margin-top: 0;
+            gap: 4px;
+          }
           .sql-options {
             display: flex;
-            gap: 16px;
-            
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            background: #f3f6fa;
+            border-radius: 6px;
+            padding: 4px 8px;
+            &.compact {
+              padding: 2px 4px;
+              gap: 4px;
+            }
+            .lineage-level-selector {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              margin-right: 4px;
+              &.compact {
+                margin-right: 2px;
+                gap: 2px;
+              }
+              .option-label {
+                font-size: 12px;
+                color: #333;
+                margin-right: 2px;
+              }
+              .radio-label {
+                display: flex;
+                align-items: center;
+                gap: 2px;
+                cursor: pointer;
+                user-select: none;
+                input[type="radio"] {
+                  margin: 0;
+                  width: 13px;
+                  height: 13px;
+                  cursor: pointer;
+                }
+                .radio-text {
+                  font-size: 12px;
+                  color: #333;
+                }
+                &:hover .radio-text {
+                  color: #1890ff;
+                }
+              }
+            }
             .option-label {
               display: flex;
               align-items: center;
-              gap: 6px;
+              gap: 2px;
               cursor: pointer;
               user-select: none;
-              
+              font-size: 12px;
               input[type="checkbox"] {
                 margin: 0;
-                width: 16px;
-                height: 16px;
+                width: 13px;
+                height: 13px;
                 cursor: pointer;
               }
-              
               .option-text {
-                font-size: 14px;
+                font-size: 12px;
                 color: #333;
               }
-              
               &:hover .option-text {
                 color: #1890ff;
               }
+              &.compact {
+                gap: 1px;
+              }
             }
           }
-          
           .analyze-btn {
-            padding: 8px 24px;
-            background-color: #1890ff;
-            color: white;
-            border: none;
-            border-radius: 6px;
+            padding: 7px 18px;
             font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            
-            &:hover {
-              background-color: #40a9ff;
-            }
-            
-            &:active {
-              background-color: #096dd9;
-            }
-            
-            &:disabled {
-              background-color: #d9d9d9;
-              cursor: not-allowed;
+            border-radius: 6px;
+            &.compact {
+              padding: 5px 12px;
+              font-size: 13px;
+              border-radius: 5px;
             }
           }
         }
@@ -2106,8 +2207,8 @@ export default {
   // 表类型图例样式
   .table-type-legend {
     position: fixed;
-    left: 20px;
-    bottom: 10px;
+    right: 20px;
+    bottom: 60px;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -2298,155 +2399,220 @@ export default {
   // 节点列表面板样式
   .node-list-panel {
     position: fixed;
-    left: 20px;
-    top: 20px;
-    min-width: 200px;
-    max-height: calc(100vh - 40px);
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    left: 24px;
+    top: 24px;
+    bottom: 24px;
+    height: auto;
+    min-width: 220px;
+    max-width: 520px;
+    background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
+    border: 1.5px solid #e6eaf0;
     z-index: 10001;
     display: flex;
     flex-direction: column;
-    
+    font-size: 13px;
+    transition: box-shadow 0.2s, border 0.2s;
     .panel-header {
-      padding: 16px;
-      border-bottom: 1px solid #eee;
+      padding: 18px 18px 10px 18px;
+      border-bottom: 1.5px solid #e6eaf0;
       width: 100%;
       box-sizing: border-box;
-      
       h3 {
-        margin: 0 0 12px 0;
-        font-size: 16px;
-        color: #333;
+        margin: 0 0 10px 0;
+        font-size: 15px;
+        color: #1890ff;
+        font-weight: 600;
+        letter-spacing: 1px;
       }
-      
       .panel-search {
         position: relative;
         width: 100%;
-        
         .node-search-input {
           width: 100%;
-          height: 32px;
+          height: 30px;
           padding: 0 32px 0 12px;
-          border: 1px solid #ddd;
-          border-radius: 6px;
-          font-size: 14px;
+          border: 1.5px solid #e6eaf0;
+          border-radius: 7px;
+          font-size: 13px;
           outline: none;
-          transition: all 0.3s;
+          transition: border 0.2s, box-shadow 0.2s;
           box-sizing: border-box;
-          
+          background: #fafdff;
           &:focus {
             border-color: #1890ff;
-            box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+            box-shadow: 0 0 0 2px rgba(24,144,255,0.13);
           }
         }
-        
         .clear-search {
           position: absolute;
           right: 8px;
           top: 50%;
           transform: translateY(-50%);
           cursor: pointer;
-          color: #999;
-          font-size: 14px;
+          color: #b0b0b0;
+          font-size: 13px;
           padding: 4px;
-          
+          border-radius: 50%;
+          background: none;
+          transition: background 0.2s, color 0.2s;
           &:hover {
-            color: #666;
+            color: #1890ff;
+            background: #e6f0ff;
           }
         }
       }
     }
-    
     .node-list {
-      flex: 1;
+      flex: 1 1 0;
+      min-height: 0;
+      max-height: 100%;
       overflow-y: auto;
-      padding: 8px;
-      width: 100%;
+      overflow-x: auto;
+      padding: 10px 8px 8px 8px;
       box-sizing: border-box;
-      
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1.5px solid #e6eaf0;
+      scrollbar-width: thin;
+      scrollbar-color: #e6eaf0 #fafdff;
+      &::-webkit-scrollbar {
+        width: 7px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #e6eaf0;
+        border-radius: 6px;
+      }
+      &::-webkit-scrollbar-track {
+        background: #fafdff;
+      }
       .node-list-item {
         display: flex;
+        min-width: 0;
+        width: auto;
+        white-space: nowrap;
         align-items: center;
-        padding: 8px 12px;
-        margin-bottom: 4px;
-        border-radius: 6px;
+        padding: 6px 10px;
+        margin-bottom: 3px;
+        border-radius: 8px;
         cursor: pointer;
-        transition: all 0.3s ease;
-        width: 100%;
+        transition: background 0.2s, color 0.2s, box-shadow 0.2s;
         box-sizing: border-box;
-        
+        font-size: 13px;
+        font-weight: 500;
         &:hover {
-          background: #f5f5f5;
+          background: #e6f0ff;
+          color: #1890ff;
         }
-        
         &.node-hidden {
           opacity: 0.5;
         }
-        
         &.node-focused {
           background: #e6f7ff;
-          border: 1px solid #91d5ff;
+          border: 1.5px solid #91d5ff;
+          color: #1890ff;
         }
-        
         &.search-highlight {
           background: #fff7e6;
-          
+          color: #d48806;
           &:hover {
             background: #fff1d6;
           }
         }
-        
         .node-type-indicator {
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           border-radius: 50%;
-          margin-right: 8px;
+          margin-right: 10px;
           flex-shrink: 0;
         }
-        
         .node-name {
-          flex: 1;
-          font-size: 14px;
+          flex: none;
+          font-size: 13px;
           color: #333;
           white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          
+          overflow: visible;
+          text-overflow: unset;
           .highlight {
             background-color: #ffd591;
             padding: 0 2px;
             border-radius: 2px;
           }
         }
-        
         .node-fields-count {
-          padding: 2px 6px;
-          background: #f0f0f0;
+          padding: 2px 7px;
+          background: #f0f4fa;
           border-radius: 10px;
           font-size: 12px;
           color: #666;
-          margin-left: 8px;
+          margin-left: 10px;
           flex-shrink: 0;
         }
       }
     }
-    
     .resize-handle {
       position: absolute;
       top: 0;
-      right: -5px;
-      width: 10px;
+      right: -7px;
+      width: 14px;
       height: 100%;
       cursor: ew-resize;
-      
+      border-radius: 8px;
+      background: none;
+      transition: background 0.2s;
       &:hover {
-        background: rgba(24, 144, 255, 0.1);
+        background: rgba(24, 144, 255, 0.10);
       }
-      
       &:active {
-        background: rgba(24, 144, 255, 0.2);
+        background: rgba(24, 144, 255, 0.18);
+      }
+    }
+  }
+
+  // 作者署名样式
+  .author-signature {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 8px 12px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    color: #666;
+    z-index: 1000;
+    
+    span {
+      font-weight: 500;
+    }
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .list-toggle {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      &.active {
+        background-color: #1890ff;
+        color: white;
+      }
+
+      &:hover {
+        background-color: #40a9ff;
       }
     }
   }
@@ -2567,12 +2733,6 @@ export default {
   animation: nodeFocus 1s ease;
 }
 
-// 调整表类型图例位置，使其跟随面板宽度
-.table-type-legend {
-  left: 340px;
-  transition: left 0.3s ease;
-}
-
 // 添加用户选择限制，防止拖动时选中文本
 .user-select-none {
   user-select: none;
@@ -2670,6 +2830,70 @@ export default {
   &:hover {
     background-color: rgba(255, 255, 255, 1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.list-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &.active {
+      background-color: #1890ff;
+      color: white;
+    }
+
+    &:hover {
+      background-color: #40a9ff;
+    }
+  }
+}
+
+.table-type-legend {
+  position: fixed;
+  right: 28px;
+  bottom: 36px;
+  background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
+  border: 1.5px solid #e6eaf0;
+  padding: 16px 18px 14px 18px;
+  z-index: 1000;
+  min-width: 120px;
+  .legend-title {
+    font-size: 13px;
+    color: #1890ff;
+    margin-bottom: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .legend-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      .color-indicator {
+        width: 18px;
+        height: 18px;
+        border-radius: 7px;
+        border: 1.5px solid #e6eaf0;
+      }
+      .type-name {
+        font-size: 13px;
+        color: #495057;
+        font-weight: 500;
+      }
+    }
   }
 }
 </style>
