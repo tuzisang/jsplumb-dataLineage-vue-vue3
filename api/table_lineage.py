@@ -11,7 +11,6 @@ START_Y = 20  # 起始 Y 坐标
 
 def get_table_lineage_json(
         sql_query: str,
-        include_intermediate_tables: bool = True,
         filter_ctes: bool = True
 ) -> Dict[str, List[Dict]]:
     """
@@ -19,7 +18,6 @@ def get_table_lineage_json(
     
     Args:
         sql_query (str): 要解析的 SQL 查询字符串
-        include_intermediate_tables (bool): 是否包含中间表
         filter_ctes (bool): 是否过滤 CTE（只显示物理表）
     
     Returns:
@@ -71,14 +69,13 @@ def get_table_lineage_json(
         tables_to_display.update(all_source_tables)
         tables_to_display.update(all_target_tables)
         
-        if include_intermediate_tables:
-            if filter_ctes:
-                # 只添加物理中间表（包含点号的表名）
-                physical_intermediates = {t for t in all_intermediate_tables if '.' in t}
-                tables_to_display.update(physical_intermediates)
-            else:
-                # 添加所有中间表
-                tables_to_display.update(all_intermediate_tables)
+        if filter_ctes:
+            # 只添加物理中间表（包含点号的表名）
+            physical_intermediates = {t for t in all_intermediate_tables if '.' in t}
+            tables_to_display.update(physical_intermediates)
+        else:
+            # 添加所有中间表
+            tables_to_display.update(all_intermediate_tables)
         
         # 生成节点列表
         nodes_list = []
@@ -95,24 +92,23 @@ def get_table_lineage_json(
             })
             current_y += NODE_BASE_HEIGHT + NODE_VERTICAL_SPACING
         
-        # 然后添加中间表（如果需要显示）
-        if include_intermediate_tables:
-            intermediates_to_show = set()
-            if filter_ctes:
-                intermediates_to_show = {t for t in all_intermediate_tables if '.' in t}
-            else:
-                intermediates_to_show = all_intermediate_tables
-                
-            current_y = START_Y
-            for table_name in sorted(intermediates_to_show):
-                nodes_list.append({
-                    "name": table_name,
-                    "type": "Middle",
-                    "fields": [],
-                    "left": START_X + LAYER_HORIZONTAL_SPACING,
-                    "top": current_y
-                })
-                current_y += NODE_BASE_HEIGHT + NODE_VERTICAL_SPACING
+        # 然后添加中间表
+        intermediates_to_show = set()
+        if filter_ctes:
+            intermediates_to_show = {t for t in all_intermediate_tables if '.' in t}
+        else:
+            intermediates_to_show = all_intermediate_tables
+            
+        current_y = START_Y
+        for table_name in sorted(intermediates_to_show):
+            nodes_list.append({
+                "name": table_name,
+                "type": "Middle",
+                "fields": [],
+                "left": START_X + LAYER_HORIZONTAL_SPACING,
+                "top": current_y
+            })
+            current_y += NODE_BASE_HEIGHT + NODE_VERTICAL_SPACING
         
         # 最后添加目标表
         current_y = START_Y

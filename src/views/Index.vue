@@ -58,13 +58,6 @@
             <label class="option-label compact">
               <input 
                 type="checkbox" 
-                v-model="includeIntermediateTables"
-              >
-              <span class="option-text">显示中间表</span>
-            </label>
-            <label class="option-label compact">
-              <input 
-                type="checkbox" 
                 v-model="filterCtes"
               >
               <span class="option-text">仅显示物理表</span>
@@ -137,7 +130,7 @@
       </div>
       <div id="table-flow" class="table-flow">
         <TableNode
-            v-for="node in json.nodes"
+            v-for="node in computedVisibleNodes"
             :key="node.name"
             :id="node.name"
             :node="node"
@@ -147,7 +140,7 @@
             :is-disabled="isNodeDisabled(node)"
             :is-hidden="hiddenNodes.has(node.name)"
             :is-table-mode="lineageLevel === 'table'"
-            :edges="json.edges"
+            :edges="computedVisibleEdges"
             @field-click="handleFieldClick"
             @table-name-click="handleTableNameClick"
             @table-highlight="handleTableHighlight"
@@ -231,43 +224,201 @@
             @click="listMode = 'field'"
           >字段</button>
         </div>
+        
+        <!-- 表类型筛选 -->
+        <div class="type-filter-section">
+          <div class="filter-header">
+            <span class="filter-title">表类型筛选</span>
+            <button 
+              class="toggle-filter-btn"
+              @click="showTypeFilter = !showTypeFilter"
+              :title="showTypeFilter ? '收起筛选' : '展开筛选'"
+            >
+              <span v-if="showTypeFilter">▼</span>
+              <span v-else>▶</span>
+            </button>
+          </div>
+          
+          <div v-show="showTypeFilter" class="filter-content">
+            <div class="type-checkboxes">
+              <label 
+                v-for="type in tableTypes" 
+                :key="type.type"
+                class="type-checkbox"
+              >
+                <input 
+                  type="checkbox" 
+                  :value="type.type"
+                  v-model="selectedTableTypes"
+                >
+                <span 
+                  class="type-indicator"
+                  :style="{ backgroundColor: type.color }"
+                ></span>
+                <span class="type-name">{{ type.type }}</span>
+              </label>
+            </div>
+            
+            <div class="filter-actions">
+              <button 
+                class="filter-action-btn"
+                @click="selectAllTypes"
+              >全选</button>
+              <button 
+                class="filter-action-btn"
+                @click="clearAllTypes"
+              >清空</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 分组显示开关 -->
+        <div class="group-toggle">
+          <label class="group-toggle-label">
+            <input 
+              type="checkbox" 
+              v-model="groupByType"
+            >
+            <span class="toggle-text">按类型分组</span>
+          </label>
+        </div>
       </div>
       <div class="node-list">
-        <!-- 表模式 -->
+        <!-- 新增：表头说明 -->
         <template v-if="listMode === 'table'">
-          <div 
-            v-for="node in filteredNodeList" 
-            :key="node.name"
-            class="node-list-item"
-            :class="{
-              'node-hidden': hiddenNodes.has(node.name),
-              'node-focused': focusedNode === node.name,
-              'search-highlight': isNodeHighlighted(node)
-            }"
-            @click="focusOnNode(node)"
-          >
-            <span 
-              class="node-type-indicator"
-              :style="{ backgroundColor: getTableColor(node.type) }"
-            ></span>
-            <span class="node-name" v-html="highlightSearchText(node.name)"></span>
-            <span class="node-fields-count">
-              {{ getTableReferenceCount(node.name) }}
-            </span>
+          <div class="node-list-header">
+            <span class="header-name">表名</span>
+            <span class="header-count">引用次数</span>
           </div>
         </template>
+        <template v-else>
+          <div class="node-list-header">
+            <span class="header-name">字段</span>
+            <span class="header-count">引用次数</span>
+          </div>
+        </template>
+        <!-- 表模式 -->
+        <template v-if="listMode === 'table'">
+          <template v-if="groupByType">
+            <div 
+              v-for="(nodes, type) in groupedNodeList" 
+              :key="type"
+              class="group-section"
+            >
+              <div class="group-header">
+                <span 
+                  class="group-type-indicator"
+                  :style="{ backgroundColor: getTableColor(type) }"
+                ></span>
+                <span class="group-title">{{ type }} ({{ nodes.length }})</span>
+                <button 
+                  type="button"
+                  class="group-toggle-btn" 
+                  @click.stop.prevent="toggleGroupCollapse(type)"
+                  :title="isGroupCollapsed(type) ? '展开' : '折叠'"
+                >
+                  <span v-if="isGroupCollapsed(type)">▶</span>
+                  <span v-else>▼</span>
+                </button>
+              </div>
+              <div v-show="!isGroupCollapsed(type)">
+                <div 
+                  v-for="node in nodes" 
+                  :key="node.name"
+                  class="node-list-item"
+                  :class="{
+                    'node-hidden': hiddenNodes.has(node.name),
+                    'node-focused': focusedNode === node.name,
+                    'search-highlight': isNodeHighlighted(node)
+                  }"
+                  @click="focusOnNode(node)"
+                >
+                  <span 
+                    class="node-type-indicator"
+                    :style="{ backgroundColor: getTableColor(node.type) }"
+                  ></span>
+                  <span class="node-name" v-html="highlightSearchText(node.name)"></span>
+                  <span class="node-fields-count">
+                    {{ getTableReferenceCount(node.name) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div 
+              v-for="node in filteredNodeList" 
+              :key="node.name"
+              class="node-list-item"
+              :class="{
+                'node-hidden': hiddenNodes.has(node.name),
+                'node-focused': focusedNode === node.name,
+                'search-highlight': isNodeHighlighted(node)
+              }"
+              @click="focusOnNode(node)"
+            >
+              <span 
+                class="node-type-indicator"
+                :style="{ backgroundColor: getTableColor(node.type) }"
+              ></span>
+              <span class="node-name" v-html="highlightSearchText(node.name)"></span>
+              <span class="node-fields-count">
+                {{ getTableReferenceCount(node.name) }}
+              </span>
+            </div>
+          </template>
+        </template>
+        
         <!-- 字段模式 -->
         <template v-else>
-          <div 
-            v-for="field in filteredFieldList" 
-            :key="field.tableName + '-' + field.fieldName"
-            class="node-list-item"
-            @click="focusFieldFromList(field)"
-          >
-            <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(getTableType(field.tableName)) }"></span>
-            <span class="node-name">{{ field.tableName }}.{{ field.fieldName }}</span>
-            <span class="node-fields-count">{{ field.refCount }}</span>
-          </div>
+          <template v-if="groupByType">
+            <div 
+              v-for="(fields, type) in groupedFieldList" 
+              :key="type"
+              class="group-section"
+            >
+              <div class="group-header">
+                <span 
+                  class="group-type-indicator"
+                  :style="{ backgroundColor: getTableColor(type) }"
+                ></span>
+                <span class="group-title">{{ type }} ({{ fields.length }})</span>
+                <button 
+                  type="button"
+                  class="group-toggle-btn" 
+                  @click.stop.prevent="toggleGroupCollapse(type)"
+                  :title="isGroupCollapsed(type) ? '展开' : '折叠'"
+                >
+                  <span v-if="isGroupCollapsed(type)">▶</span>
+                  <span v-else>▼</span>
+                </button>
+              </div>
+              <div v-show="!isGroupCollapsed(type)">
+                <div 
+                  v-for="field in fields" 
+                  :key="field.tableName + '-' + field.fieldName"
+                  class="node-list-item"
+                  @click="focusFieldFromList(field)"
+                >
+                  <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(field.tableType) }"></span>
+                  <span class="node-name">{{ field.tableName }}.{{ field.fieldName }}</span>
+                  <span class="node-fields-count">{{ field.refCount }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div 
+              v-for="field in filteredFieldList" 
+              :key="field.tableName + '-' + field.fieldName"
+              class="node-list-item"
+              @click="focusFieldFromList(field)"
+            >
+              <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(field.tableType) }"></span>
+              <span class="node-name">{{ field.tableName }}.{{ field.fieldName }}</span>
+              <span class="node-fields-count">{{ field.refCount }}</span>
+            </div>
+          </template>
         </template>
       </div>
       <!-- 添加拖动调整宽度的把手 -->
@@ -275,6 +426,11 @@
         class="resize-handle"
         @mousedown="startResize"
       ></div>
+    </div>
+
+    <!-- 虚拟化状态提示 -->
+    <div v-if="virtualizationEnabled" class="virtualization-status">
+      <span>虚拟化渲染已启用 ({{ computedVisibleNodes.length }}/{{ json.nodes.length }} 节点)</span>
     </div>
 
     <!-- 作者署名 -->
@@ -296,6 +452,8 @@ import colorFields from './config/tableTypeMappingColor'
 
 const VIEWPORT_PADDING = 500; // 可视区域外的缓冲区大小
 const BATCH_SIZE = 10; // 批量处理的节点数量
+const VIRTUALIZATION_ENABLED = true; // 启用虚拟化渲染
+const MAX_NODES_FOR_VIRTUALIZATION = 50; // 超过此数量启用虚拟化
 
 const jsplumb = jsplumbModule.jsPlumb
 export default {
@@ -327,7 +485,7 @@ export default {
       toastMessage: '',
       toastTimer: null,
       tableTypes: colorFields.filter(color => color.type !== 'HighLight' && color.type !== 'NormalLight'),
-      selectedTableTypes: [],
+      selectedTableTypes: ['Origin', 'Middle', 'RS'], // 选中的表类型
       searchMode: 'contains',
       searchInTableNames: true,
       searchInFieldNames: true,
@@ -335,6 +493,8 @@ export default {
       criticalPathNodes: new Set(),
       viewportTop: 0,
       viewportBottom: 0,
+      viewportLeft: 0,
+      viewportRight: 0,
       nodePositions: new Map(),
       isInitializing: false,
       currentFieldIndex: 0,
@@ -342,63 +502,262 @@ export default {
       hiddenNodesConnections: null,
       nodeSearchQuery: '',
       focusedNode: null,
-      panelWidth: 300,
+      panelWidth: 350,
       isResizing: false,
       lastMouseX: 0,
-      minPanelWidth: 200,
+      minPanelWidth: 280,
       maxPanelWidth: 600,
-      includeIntermediateTables: false,
       filterCtes: false,
       isMinimized: false,
       highlightedTables: [], // 新增：存储高亮的表名
       listMode: 'table', // 新增：表/字段切换
+      // 表类型筛选相关
+      showTypeFilter: false, // 是否显示类型筛选
+      groupByType: true, // 是否按类型分组显示
+      groupCollapseState: {
+        Origin: false,
+        Middle: false,
+        RS: false
+      }, // 分组折叠/展开状态
+      // 虚拟化相关
+      virtualizationEnabled: false,
+      viewportBounds: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+      },
+      // 连接线渲染优化相关
+      connectionCache: new Map(), // 缓存连接线状态
+      lastVisibleEdgesHash: '', // 上次可见边的哈希值
+      renderQueue: [], // 渲染队列
+      isRendering: false, // 是否正在渲染
+      // DOM 操作优化相关
+      cachedElements: new Map(), // 缓存 DOM 元素引用
+      elementCacheExpiry: new Map(), // 元素缓存过期时间
+      cacheExpiryTime: 30000, // 缓存过期时间 30 秒
+      // 事件处理优化相关
+      eventListeners: new Map(), // 存储事件监听器引用
+      passiveEvents: ['scroll', 'touchstart', 'touchmove', 'wheel'], // 支持 passive 的事件
+      eventThrottleMap: new Map(), // 事件节流映射
+      eventDebounceMap: new Map(), // 事件防抖映射
+      // 内存管理优化相关
+      memoryStats: {
+        cacheSize: 0,
+        lastCleanup: Date.now(),
+        cleanupCount: 0
+      },
+      weakRefs: new WeakMap(), // 使用 WeakMap 存储弱引用
+      objectPool: new Map(), // 对象池，复用常用对象
+      maxCacheSize: 1000, // 最大缓存大小
+      maxObjectPoolSize: 100, // 最大对象池大小
+      // 渲染性能优化相关
+      renderStats: {
+        frameCount: 0,
+        lastFrameTime: 0,
+        averageFrameTime: 0,
+        renderQueueSize: 0
+      },
+      renderOptimizations: {
+        useTransform3d: true, // 使用 transform3d 启用硬件加速
+        enableLayerOptimization: true, // 启用图层优化
+        useCompositorOnlyAnimations: true, // 使用合成器动画
+        batchDOMUpdates: true // 批量 DOM 更新
+      },
+      pendingUpdates: new Set(), // 待更新的元素
+      updateScheduled: false, // 是否已安排更新
+      layerCache: new Map(), // 图层缓存
+      // CSS 优化相关
+      cssOptimizations: {
+        useContainment: true, // 使用 CSS containment
+        enableWillChange: true, // 启用 will-change 优化
+        useBackfaceVisibility: true, // 使用 backface-visibility 优化
+        enableTransformOptimization: true, // 启用 transform 优化
+        useFilterOptimization: true // 启用 filter 优化
+      },
+      cssCache: new Map(), // CSS 样式缓存
+      styleSheet: null // 动态样式表
     };
   },
   mounted() {
     this.renderDefaultLineage()
-    document.addEventListener('click', this.handleClickOutside)
-    this.$refs.flowWrap.addEventListener('scroll', this.handleScroll)
-    window.addEventListener('resize', this.handleResize)
-    document.addEventListener('mousemove', this.handleResize)
-    document.addEventListener('mouseup', this.stopResize)
+    
+    // 使用优化的事件监听器添加方法
+    this.addOptimizedEventListener(document, 'click', this.handleClickOutside);
+    
+    // 使用智能节流处理滚动事件
+    const throttledScrollHandler = this.createThrottledHandler(this.handleScroll, 16, 'scroll');
+    this.addOptimizedEventListener(this.$refs.flowWrap, 'scroll', throttledScrollHandler, { passive: true });
+    
+    // 使用智能防抖处理窗口调整大小
+    const debouncedResizeHandler = this.createDebouncedHandler(this.handleResize, 100, 'resize');
+    this.addOptimizedEventListener(window, 'resize', debouncedResizeHandler);
+    
+    this.addOptimizedEventListener(document, 'mousemove', this.handleResize);
+    this.addOptimizedEventListener(document, 'mouseup', this.stopResize);
+    
+    // 初始化虚拟化
+    this.initVirtualization()
+    
+    // 定期清理过期的 DOM 缓存
+    this.cacheCleanupInterval = setInterval(() => {
+      this.clearExpiredElementCache();
+    }, 60000); // 每分钟清理一次
+    
+    // 定期执行智能内存清理
+    this.memoryCleanupInterval = setInterval(() => {
+      this.smartMemoryCleanup();
+    }, 300000); // 每5分钟清理一次
+    
+    // 启动渲染性能监控
+    this.startRenderMonitoring();
+    
+    // 初始化动态样式表
+    this.initDynamicStyleSheet();
   },
   beforeDestroy() {
-    this.jsplumbInstance.reset()
-    document.removeEventListener('click', this.handleClickOutside)
-    this.$refs.flowWrap.removeEventListener('scroll', this.handleScroll)
-    window.removeEventListener('resize', this.handleResize)
-    if (this.toastTimer) {
-      clearTimeout(this.toastTimer)
+    // 清理连接线缓存
+    this.clearConnectionCache();
+    
+    // 清理 DOM 缓存
+    this.clearElementCache();
+    
+    // 清理事件监听器
+    this.clearAllEventListeners();
+    
+    // 清理定时器
+    if (this.cacheCleanupInterval) {
+      clearInterval(this.cacheCleanupInterval);
     }
-    document.removeEventListener('mousemove', this.handleResize)
-    document.removeEventListener('mouseup', this.stopResize)
+    if (this.memoryCleanupInterval) {
+      clearInterval(this.memoryCleanupInterval);
+    }
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+    
+    // 清理 jsPlumb 事件处理器
+    if (this.jsplumbEventHandlers && this.jsplumbInstance) {
+      Object.keys(this.jsplumbEventHandlers).forEach(eventName => {
+        this.jsplumbInstance.unbind(eventName, this.jsplumbEventHandlers[eventName]);
+      });
+    }
+    
+    // 清理 panzoom 事件处理器
+    if (this.panzoomEventHandlers && this.jsplumbInstance && this.jsplumbInstance.mainContainerWrap) {
+      const container = this.jsplumbInstance.mainContainerWrap;
+      Object.keys(this.panzoomEventHandlers).forEach(eventName => {
+        container.removeEventListener(eventName, this.panzoomEventHandlers[eventName]);
+      });
+    }
+    this.jsplumbInstance.reset();
+    // 清理 CSS 优化
+    this.cleanupAllCSSOptimizations();
   },
   created() {
-    this.selectedTableTypes = this.tableTypes.map(type => type.type)
+    // 初始化选中的表类型为所有类型
+    this.selectedTableTypes = this.tableTypes.map(type => type.type);
+    // 初始化分组折叠状态，默认全部展开
+    const initialState = {};
+    this.tableTypes.forEach(type => {
+      initialState[type.type] = false;
+    });
+    this.groupCollapseState = initialState;
+  },
+  watch: {
+    // 监听节点数据变化，重新初始化虚拟化
+    'json.nodes': {
+      handler() {
+        if (this.virtualizationEnabled !== this.shouldEnableVirtualization) {
+          this.$nextTick(() => {
+            this.initVirtualization();
+          });
+        }
+      },
+      deep: true
+    },
+    // 监听视口边界变化
+    viewportBounds: {
+      handler() {
+        if (this.virtualizationEnabled) {
+          this.updateVisibleElements();
+        }
+      },
+      deep: true
+    }
   },
   computed: {
     hasOriginTables() {
       return this.json.nodes.some(node => node.type === 'Origin')
     },
+    // 虚拟化相关计算属性
+    shouldEnableVirtualization() {
+      return VIRTUALIZATION_ENABLED && this.json.nodes.length > MAX_NODES_FOR_VIRTUALIZATION;
+    },
+    // 计算可视区域内的节点
+    computedVisibleNodes() {
+      if (!this.shouldEnableVirtualization) {
+        return this.json.nodes;
+      }
+      
+      // 如果视口边界还没有初始化，返回所有节点
+      if (!this.viewportBounds || this.viewportBounds.bottom === 0) {
+        return this.json.nodes;
+      }
+      
+      const { top, bottom, left, right } = this.viewportBounds;
+      const padding = VIEWPORT_PADDING;
+      
+      return this.json.nodes.filter(node => {
+        // 检查节点是否在可视区域内（包括缓冲区）
+        const nodeTop = node.top;
+        const nodeLeft = node.left;
+        const nodeBottom = nodeTop + (node.fields ? node.fields.length * 25 + 60 : 60); // 估算节点高度
+        const nodeRight = nodeLeft + 200; // 估算节点宽度
+        
+        return nodeTop <= bottom + padding &&
+               nodeBottom >= top - padding &&
+               nodeLeft <= right + padding &&
+               nodeRight >= left - padding;
+      });
+    },
+    // 计算可视区域内的连接线
+    computedVisibleEdges() {
+      if (!this.shouldEnableVirtualization) {
+        return this.json.edges;
+      }
+      
+      const visibleNodeNames = new Set(this.computedVisibleNodes.map(n => n.name));
+      
+      return this.json.edges.filter(edge => 
+        visibleNodeNames.has(edge.from.name) && visibleNodeNames.has(edge.to.name)
+      );
+    },
     filteredNodeList() {
       // 表模式下的表过滤
       if (this.listMode !== 'table') return [];
       let nodes = this.json.nodes.slice();
-      // 按引用次数降序
-      nodes.sort((a, b) => this.getTableReferenceCount(b.name) - this.getTableReferenceCount(a.name));
-      if (!this.nodeSearchQuery) {
-        return nodes;
+      
+      // 表类型筛选
+      if (this.selectedTableTypes.length > 0) {
+        nodes = nodes.filter(node => this.selectedTableTypes.includes(node.type));
       }
-      const query = this.nodeSearchQuery.toLowerCase();
-      return nodes.filter(node => {
-        const nodeName = node.name.toLowerCase();
-        return nodeName.includes(query);
-      }).sort((a, b) => {
-        // 先按引用次数降序，再按名称
+      
+      // 搜索过滤
+      if (this.nodeSearchQuery) {
+        const query = this.nodeSearchQuery.toLowerCase();
+        nodes = nodes.filter(node => {
+          const nodeName = node.name.toLowerCase();
+          return nodeName.includes(query);
+        });
+      }
+      
+      // 按引用次数降序
+      return nodes.sort((a, b) => {
         const refDiff = this.getTableReferenceCount(b.name) - this.getTableReferenceCount(a.name);
         if (refDiff !== 0) return refDiff;
-        const aStartsWith = a.name.toLowerCase().startsWith(query);
-        const bStartsWith = b.name.toLowerCase().startsWith(query);
+        const aStartsWith = a.name.toLowerCase().startsWith(this.nodeSearchQuery.toLowerCase());
+        const bStartsWith = b.name.toLowerCase().startsWith(this.nodeSearchQuery.toLowerCase());
         if (aStartsWith && !bStartsWith) return -1;
         if (!aStartsWith && bStartsWith) return 1;
         return a.name.localeCompare(b.name);
@@ -408,17 +767,26 @@ export default {
       // 字段模式下的字段过滤和引用计数
       if (this.listMode !== 'field') return [];
       let fields = [];
-      this.json.nodes.forEach(node => {
+      
+      // 先按表类型筛选节点
+      let filteredNodes = this.json.nodes;
+      if (this.selectedTableTypes.length > 0) {
+        filteredNodes = this.json.nodes.filter(node => this.selectedTableTypes.includes(node.type));
+      }
+      
+      filteredNodes.forEach(node => {
         if (node.fields) {
           node.fields.forEach(field => {
             fields.push({
               tableName: node.name,
               fieldName: field.name,
+              tableType: node.type,
               refCount: this.getFieldReferenceCount(node.name, field.name)
             });
           });
         }
       });
+      
       // 搜索过滤
       if (this.nodeSearchQuery) {
         const query = this.nodeSearchQuery.toLowerCase();
@@ -427,8 +795,43 @@ export default {
           f.fieldName.toLowerCase().includes(query)
         );
       }
+      
       // 按引用次数降序
       return fields.sort((a, b) => b.refCount - a.refCount || a.tableName.localeCompare(b.tableName) || a.fieldName.localeCompare(b.fieldName));
+    },
+    
+    // 分组显示的表列表
+    groupedNodeList() {
+      if (!this.groupByType) {
+        return { all: this.filteredNodeList };
+      }
+      
+      const groups = {};
+      this.filteredNodeList.forEach(node => {
+        if (!groups[node.type]) {
+          groups[node.type] = [];
+        }
+        groups[node.type].push(node);
+      });
+      
+      return groups;
+    },
+    
+    // 分组显示的字段列表
+    groupedFieldList() {
+      if (!this.groupByType) {
+        return { all: this.filteredFieldList };
+      }
+      
+      const groups = {};
+      this.filteredFieldList.forEach(field => {
+        if (!groups[field.tableType]) {
+          groups[field.tableType] = [];
+        }
+        groups[field.tableType].push(field);
+      });
+      
+      return groups;
     }
   },
   methods: {
@@ -494,6 +897,11 @@ export default {
         this.bindConnectionEvents();
         
         this.isInitializing = false;
+        
+        // 在初始化完成后重新初始化虚拟化
+        this.$nextTick(() => {
+          this.initVirtualization();
+        });
       });
     },
     // 初始化节点位置缓存
@@ -506,14 +914,14 @@ export default {
         });
       });
     },
-    // 初始化所有节点和连接
-    initializeNodesAndConnections() {
+    // 初始化所有节点和连接 - 优化版本
+    async initializeNodesAndConnections() {
       if (!this.json.nodes.length) return;
       
       this.jsplumbInstance.setSuspendDrawing(true);
       
-      // 初始化节点
-      this.json.nodes.forEach(node => {
+      // 使用批量处理初始化节点
+      await this.processLargeArray(this.json.nodes, (node) => {
         this.draggableNode(node.name);
         // 为节点添加端点，即使没有字段
         this.addEndpoint(node.name.concat(this.minus), this.anchorArr);
@@ -524,31 +932,211 @@ export default {
             this.addEndpoint(node.name.concat(this.minus, field.name), this.anchorArr);
           });
         }
-      });
+        
+        // 应用 CSS 优化到节点
+        this.$nextTick(() => {
+          const nodeElement = this.getCachedElement(node.name);
+          if (nodeElement) {
+            this.applyBatchCSSOptimizations([nodeElement], {
+              containment: 'layout style paint',
+              willChange: 'transform',
+              backfaceVisibility: true,
+              transform: 'translate3d(0, 0, 0)'
+            });
+          }
+        });
+      }, 20); // 每批处理20个节点
       
-      // 创建连接
-      this.json.edges.forEach(edge => {
+      // 使用批量处理创建连接
+      await this.processLargeArray(this.json.edges, (edge) => {
         const from = edge.from.name.concat(this.minus, edge.from.field, this.minus, "Right");
         const to = edge.to.name.concat(this.minus, edge.to.field, this.minus, "Left");
         this.connectEndpoint(from, to);
-      });
+      }, 50); // 每批处理50个连接
       
       this.jsplumbInstance.setSuspendDrawing(false, true);
+      
+      // 如果启用了虚拟化，初始化可见元素
+      if (this.virtualizationEnabled) {
+        this.$nextTick(() => {
+          this.updateVisibleElements();
+        });
+      }
     },
+    // 初始化虚拟化
+    initVirtualization() {
+      this.virtualizationEnabled = this.shouldEnableVirtualization;
+      this.updateViewport();
+      
+      // 如果启用了虚拟化，更新连接线
+      if (this.virtualizationEnabled) {
+        this.updateVisibleElements();
+      }
+    },
+    
     // 更新视口范围（使用节流）
     updateViewport: throttle(function() {
       const container = this.$refs.flowWrap;
+      if (!container) return;
+      
       const scale = this.jsplumbInstance ? this.jsplumbInstance.getZoom() : 1;
       
       this.viewportTop = container.scrollTop / scale;
       this.viewportBottom = (container.scrollTop + container.clientHeight) / scale;
+      this.viewportLeft = container.scrollLeft / scale;
+      this.viewportRight = (container.scrollLeft + container.clientWidth) / scale;
+      
+      // 更新视口边界
+      this.viewportBounds = {
+        top: this.viewportTop,
+        bottom: this.viewportBottom,
+        left: this.viewportLeft,
+        right: this.viewportRight
+      };
+      
+      // 如果启用了虚拟化，更新可见元素
+      if (this.virtualizationEnabled) {
+        this.updateVisibleElements();
+      }
     }, 16),
-    // 获取节点位置样式
+    
+    // 更新可见元素
+    updateVisibleElements() {
+      if (!this.virtualizationEnabled) return;
+      
+      // 使用智能连接线渲染
+      this.$nextTick(() => {
+        this.smartRenderConnections();
+      });
+    },
+    
+    // 更新 jsPlumb 连接线 - 渲染性能优化版本
+    updateJsPlumbConnections() {
+      if (!this.jsplumbInstance) return;
+      
+      // 挂起绘制以提高性能
+      this.jsplumbInstance.setSuspendDrawing(true);
+      
+      // 创建可见边的映射表，提高查找效率
+      const visibleEdgeMap = new Map();
+      this.computedVisibleEdges.forEach(edge => {
+        const from = edge.from.name.concat(this.minus, edge.from.field, this.minus, "Right");
+        const to = edge.to.name.concat(this.minus, edge.to.field, this.minus, "Left");
+        visibleEdgeMap.set(`${from}-${to}`, true);
+      });
+      
+      // 使用优化的连接线更新方法
+      const allConnections = this.jsplumbInstance.getAllConnections();
+      this.optimizedConnectionUpdate(allConnections, (conn) => {
+        const edgeKey = `${conn.sourceId}-${conn.targetId}`;
+        const shouldBeVisible = visibleEdgeMap.has(edgeKey);
+        conn.setVisible(shouldBeVisible);
+      });
+      
+      // 恢复绘制
+      this.jsplumbInstance.setSuspendDrawing(false, true);
+    },
+    
+    // 批量更新连接线的辅助方法
+    updateJsPlumbConnectionsBatch(allConnections, visibleEdgeMap, startIndex, batchSize) {
+      for (let i = startIndex; i < allConnections.length; i += batchSize) {
+        const batch = allConnections.slice(i, i + batchSize);
+        
+        batch.forEach(conn => {
+          const edgeKey = `${conn.sourceId}-${conn.targetId}`;
+          const shouldBeVisible = visibleEdgeMap.has(edgeKey);
+          conn.setVisible(shouldBeVisible);
+        });
+        
+        // 如果还有更多批次，继续分批处理
+        if (i + batchSize < allConnections.length) {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              this.updateJsPlumbConnectionsBatch(allConnections, visibleEdgeMap, i + batchSize, batchSize);
+            }, 0);
+          });
+          break;
+        }
+      }
+    },
+    
+    // 智能连接线渲染 - 只在必要时更新
+    smartRenderConnections() {
+      if (!this.jsplumbInstance || this.isRendering) return;
+      
+      // 计算当前可见边的哈希值
+      const currentEdgesHash = this.computedVisibleEdges
+        .map(edge => `${edge.from.name}-${edge.from.field}-${edge.to.name}-${edge.to.field}`)
+        .sort()
+        .join('|');
+      
+      // 如果哈希值没有变化，跳过渲染
+      if (currentEdgesHash === this.lastVisibleEdgesHash) {
+        return;
+      }
+      
+      // 更新哈希值
+      this.lastVisibleEdgesHash = currentEdgesHash;
+      
+      // 缓存连接线状态
+      this.smartCacheSet(this.connectionCache, currentEdgesHash, {
+        timestamp: Date.now(),
+        edges: this.computedVisibleEdges
+      });
+      
+      // 将渲染任务加入队列
+      this.renderQueue.push(() => {
+        this.updateJsPlumbConnections();
+      });
+      
+      // 如果队列中有任务且没有在渲染，开始渲染
+      if (this.renderQueue.length > 0 && !this.isRendering) {
+        this.processRenderQueue();
+      }
+    },
+    
+    // 处理渲染队列
+    processRenderQueue() {
+      if (this.renderQueue.length === 0) {
+        this.isRendering = false;
+        return;
+      }
+      
+      this.isRendering = true;
+      const renderTask = this.renderQueue.shift();
+      
+      if (window.requestIdleCallback) {
+        requestIdleCallback(() => {
+          renderTask();
+          // 继续处理队列中的下一个任务
+          setTimeout(() => {
+            this.processRenderQueue();
+          }, 0);
+        }, { timeout: 50 });
+      } else {
+        requestAnimationFrame(() => {
+          renderTask();
+          // 继续处理队列中的下一个任务
+          setTimeout(() => {
+            this.processRenderQueue();
+          }, 0);
+        });
+      }
+    },
+    // 获取节点位置样式 - 渲染性能优化版本
     getNodePosition(node) {
+      const element = this.getCachedElement(node.name);
+      
+      // 如果元素存在，启用硬件加速
+      if (element && this.renderOptimizations.useTransform3d) {
+        this.enableHardwareAcceleration(element);
+      }
+      
       return {
         position: 'absolute',
         top: node.top + 'px',
-        left: node.left + 'px'
+        left: node.left + 'px',
+        transform: this.renderOptimizations.useTransform3d ? 'translate3d(0, 0, 0)' : 'none'
       };
     },
     // 获取节点可见性样式
@@ -612,58 +1200,81 @@ export default {
         visibility: 'visible'
       };
     },
-    // 处理滚动事件
+    // 处理滚动事件 - 优化版本
     handleScroll() {
       if (this.isInitializing) return;
+      
+      // 更新视口
       this.updateViewport();
       
-      // 重新绘制连接线
-      requestAnimationFrame(() => {
+      // 如果启用了虚拟化，不需要重新绘制所有连接线
+      if (!this.virtualizationEnabled) {
+        // 使用优化的连接线重绘
         this.redrawConnectionsSoft();
-      });
+      }
     },
-    // 处理窗口调整大小
+    // 处理窗口调整大小 - 优化版本
     handleResize: debounce(function() {
       if (!this.jsplumbInstance || this.isInitializing) return;
+      
+      // 清理 DOM 缓存，因为窗口大小改变可能影响元素位置
+      this.clearElementCache();
       
       requestAnimationFrame(() => {
         this.jsplumbInstance.repaintEverything();
       });
     }, 100),
-    // 重写拖动方法
+    // 重写拖动方法 - 优化版本
     draggableNode(nodeID) {
       if (!this.jsplumbInstance) return;
       
+      // 使用智能节流处理拖动事件
+      const throttledDragHandler = this.createThrottledHandler((params) => {
+        this.alignForLine(nodeID, params.pos);
+        // 更新节点位置缓存
+        const node = this.nodePositions.get(nodeID);
+        if (node) {
+          node.top = params.pos[1];
+          node.left = params.pos[0];
+        }
+        
+        // 优化拖动时的渲染性能
+        const element = this.getCachedElement(nodeID);
+        if (element && this.renderOptimizations.enableLayerOptimization) {
+          this.optimizeLayer(element, 'transform');
+          
+          // 应用 CSS 优化
+          this.applyWillChange(element, 'transform');
+          this.applyTransformOptimization(element, 'translate3d(0, 0, 0)');
+        }
+      }, 16, `drag-${nodeID}`);
+      
       this.jsplumbInstance.draggable(nodeID, {
         grid: this.commGrid,
-        drag: throttle((params) => {
-          this.alignForLine(nodeID, params.pos);
-          // 更新节点位置缓存
-          const node = this.nodePositions.get(nodeID);
-          if (node) {
-            node.top = params.pos[1];
-            node.left = params.pos[0];
-          }
-        }, 16),
+        drag: throttledDragHandler,
         stop: (params) => {
           this.auxiliaryLine.isShowXLine = false;
           this.auxiliaryLine.isShowYLine = false;
           this.changeNodePosition(nodeID, params.pos);
-          requestAnimationFrame(() => {
-            this.redrawConnections();
-          });
+          
+          // 清理拖动时的图层优化
+          const element = this.getCachedElement(nodeID);
+          if (element) {
+            this.cleanupLayerOptimization(element);
+            this.cleanupCSSOptimizations(element);
+          }
+          
+          // 使用优化的连接线重绘
+          this.optimizedJsPlumbRepaint();
         }
       });
     },
-    // 优化连接线重绘
+    // 优化连接线重绘 - 使用渲染性能优化
     redrawConnectionsSoft() {
       if (!this.jsplumbInstance) return;
       
-      requestAnimationFrame(() => {
-        this.jsplumbInstance.setSuspendDrawing(true);
-        this.jsplumbInstance.repaintEverything();
-        this.jsplumbInstance.setSuspendDrawing(false, true);
-      });
+      // 使用优化的 jsPlumb 重绘方法
+      this.optimizedJsPlumbRepaint();
     },
     // 获取表的类型
     getTableType(tableName) {
@@ -721,14 +1332,14 @@ export default {
       this.filteredFields = [];
       this.showDropdown = false;
     },
-    // 选择字段
+    // 选择字段 - 优化版本
     async selectField(field) {
       this.highlightFieldLineage(field.tableName, field.fieldName);
       this.showDropdown = false;
 
-      // 获取目标字段元素
+      // 使用缓存的 DOM 元素
       const fieldId = `${field.tableName}${this.minus}${field.fieldName}`;
-      const fieldElement = document.getElementById(fieldId);
+      const fieldElement = this.getCachedElement(fieldId);
       
       if (!fieldElement) return;
 
@@ -767,7 +1378,7 @@ export default {
       const targetY = containerCenterY - fieldCenterY;
 
       // 4. 添加动画效果
-      const tableFlow = document.querySelector('.table-flow');
+      const tableFlow = this.getCachedQuerySelector('.table-flow');
       if (tableFlow) {
         tableFlow.classList.add('camera-animate');
       }
@@ -776,14 +1387,13 @@ export default {
       pan.moveTo(targetX, targetY);
 
       // 6. 添加字段高亮动画
-      fieldElement.classList.add('field-focus-animation');
+      this.addOptimizedAnimationClass(fieldElement, 'field-focus-animation', 1500);
       
       // 7. 清理动画类
       setTimeout(() => {
         if (tableFlow) {
           tableFlow.classList.remove('camera-animate');
         }
-        fieldElement.classList.remove('field-focus-animation');
         this.jsplumbInstance.repaintEverything();
       }, 500);
     },
@@ -932,21 +1542,30 @@ export default {
         this.showToast = false;
       }, 2000);
     },
-    // 绑定连接线事件
+    // 绑定连接线事件 - 优化版本
     bindConnectionEvents() {
       if (!this.jsplumbInstance) return;
       
-      // 鼠标进入连接线
-      this.jsplumbInstance.bind('mouseenter', (conn) => {
+      // 使用智能事件处理，避免重复绑定
+      const mouseenterHandler = (conn) => {
         if (!conn.hasClass('jtk-connection-highlighted')) {
           conn.addClass('jtk-connection-hover');
         }
-      });
+      };
       
-      // 鼠标离开连接线
-      this.jsplumbInstance.bind('mouseexit', (conn) => {
+      const mouseexitHandler = (conn) => {
         conn.removeClass('jtk-connection-hover');
-      });
+      };
+      
+      // 绑定事件
+      this.jsplumbInstance.bind('mouseenter', mouseenterHandler);
+      this.jsplumbInstance.bind('mouseexit', mouseexitHandler);
+      
+      // 存储事件处理器引用，以便后续清理
+      this.jsplumbEventHandlers = {
+        mouseenter: mouseenterHandler,
+        mouseexit: mouseexitHandler
+      };
     },
     // 处理复制成功事件
     handleCopySuccess(data) {
@@ -975,7 +1594,6 @@ export default {
           },
           body: JSON.stringify({
             sql_query: this.sqlQuery,
-            include_intermediate_tables: this.includeIntermediateTables,
             filter_ctes: this.filterCtes,
             lineage_level: this.lineageLevel // 添加血缘分析级别参数
           })
@@ -1104,12 +1722,12 @@ export default {
         }
       });
     },
-    // 聚焦到下一个字段
+    // 聚焦到下一个字段 - 优化版本
     async focusNextField() {
       if (!this.highlightedFields.length) return;
 
       // 添加按钮点击动画效果
-      const cameraButton = document.querySelector('.camera-button');
+      const cameraButton = this.getCachedQuerySelector('.camera-button');
       if (cameraButton) {
         cameraButton.style.transform = 'scale(0.95)';
         setTimeout(() => {
@@ -1122,7 +1740,7 @@ export default {
       const field = this.highlightedFields[this.currentFieldIndex];
       
       // 触发计数器动画
-      const counterElement = document.querySelector('.field-counter');
+      const counterElement = this.getCachedQuerySelector('.field-counter');
       if (counterElement) {
         counterElement.classList.add('counter-update');
         setTimeout(() => {
@@ -1130,9 +1748,9 @@ export default {
         }, 500);
       }
       
-      // 获取目标字段元素
+      // 使用缓存的 DOM 元素
       const fieldId = `${field.tableName}${this.minus}${field.fieldName}`;
-      const fieldElement = document.getElementById(fieldId);
+      const fieldElement = this.getCachedElement(fieldId);
       
       if (!fieldElement) return;
 
@@ -1174,7 +1792,7 @@ export default {
 
       // 4. 使用panzoom的moveTo方法移动到目标位置
       // 定位前加动画class
-      const tableFlow = document.querySelector('.table-flow');
+      const tableFlow = this.getCachedQuerySelector('.table-flow');
       if (tableFlow) {
         tableFlow.classList.add('camera-animate');
       }
@@ -1185,10 +1803,7 @@ export default {
       }, 500);
 
       // 5. 添加高亮动画效果
-      fieldElement.classList.add('field-focus-animation');
-      setTimeout(() => {
-        fieldElement.classList.remove('field-focus-animation');
-      }, 1500);
+      this.addOptimizedAnimationClass(fieldElement, 'field-focus-animation', 1500);
     },
 
     // 重置字段索引
@@ -1444,7 +2059,7 @@ export default {
       return `${before}<span class="highlight">${match}</span>${after}`;
     },
 
-    // 改进的聚焦到节点方法
+    // 改进的聚焦到节点方法 - 优化版本
     async focusOnNode(node) {
       if (!this.jsplumbInstance || !node) return;
 
@@ -1474,7 +2089,7 @@ export default {
 
       // 2. 获取容器和节点元素
       const mainContainer = this.jsplumbInstance.getContainer();
-      const nodeElement = document.getElementById(node.name);
+      const nodeElement = this.getCachedElement(node.name);
       
       if (!nodeElement) return;
 
@@ -1496,7 +2111,7 @@ export default {
       const targetY = containerCenterY - headerCenterY;
 
       // 5. 添加动画效果
-      const tableFlow = document.querySelector('.table-flow');
+      const tableFlow = this.getCachedQuerySelector('.table-flow');
       if (tableFlow) {
         tableFlow.classList.add('camera-animate');
       }
@@ -1505,14 +2120,13 @@ export default {
       pan.moveTo(targetX, targetY);
 
       // 7. 添加节点高亮动画
-      nodeElement.classList.add('node-focus-animation');
+      this.addOptimizedAnimationClass(nodeElement, 'node-focus-animation', 1000);
       
       // 8. 清理动画类
       setTimeout(() => {
         if (tableFlow) {
           tableFlow.classList.remove('camera-animate');
         }
-        nodeElement.classList.remove('node-focus-animation');
         this.jsplumbInstance.repaintEverything();
         
         // 3秒后清除聚焦状态
@@ -1541,8 +2155,746 @@ export default {
         this.jsplumbInstance.pan.zoomAbs(0, 0, 1);
       }
       
+      // 清理连接线缓存
+      this.clearConnectionCache();
+      
       // 恢复绘制
       this.jsplumbInstance.setSuspendDrawing(false, true);
+    },
+    
+    // 清理连接线缓存
+    clearConnectionCache() {
+      this.connectionCache.clear();
+      this.lastVisibleEdgesHash = '';
+      this.renderQueue = [];
+      this.isRendering = false;
+    },
+    
+    // 获取缓存的 DOM 元素 - 优化版本
+    getCachedElement(id) {
+      const now = Date.now();
+      
+      // 检查缓存是否存在且未过期
+      if (this.cachedElements.has(id)) {
+        const expiry = this.elementCacheExpiry.get(id);
+        if (expiry && now < expiry) {
+          return this.cachedElements.get(id);
+        } else {
+          // 缓存已过期，清理
+          this.cachedElements.delete(id);
+          this.elementCacheExpiry.delete(id);
+        }
+      }
+      
+      // 获取新元素并缓存
+      const element = document.getElementById(id);
+      if (element) {
+        // 使用智能缓存管理
+        this.smartCacheSet(this.cachedElements, id, element);
+        this.elementCacheExpiry.set(id, now + this.cacheExpiryTime);
+      }
+      
+      return element;
+    },
+    
+    // 获取缓存的查询选择器元素 - 优化版本
+    getCachedQuerySelector(selector) {
+      const now = Date.now();
+      const cacheKey = `query:${selector}`;
+      
+      // 检查缓存是否存在且未过期
+      if (this.cachedElements.has(cacheKey)) {
+        const expiry = this.elementCacheExpiry.get(cacheKey);
+        if (expiry && now < expiry) {
+          return this.cachedElements.get(cacheKey);
+        } else {
+          // 缓存已过期，清理
+          this.cachedElements.delete(cacheKey);
+          this.elementCacheExpiry.delete(cacheKey);
+        }
+      }
+      
+      // 获取新元素并缓存
+      const element = document.querySelector(selector);
+      if (element) {
+        // 使用智能缓存管理
+        this.smartCacheSet(this.cachedElements, cacheKey, element);
+        this.elementCacheExpiry.set(cacheKey, now + this.cacheExpiryTime);
+      }
+      
+      return element;
+    },
+    
+    // 清理 DOM 缓存
+    clearElementCache() {
+      this.cachedElements.clear();
+      this.elementCacheExpiry.clear();
+    },
+    
+    // 清理过期的 DOM 缓存
+    clearExpiredElementCache() {
+      const now = Date.now();
+      const expiredKeys = [];
+      
+      this.elementCacheExpiry.forEach((expiry, key) => {
+        if (now >= expiry) {
+          expiredKeys.push(key);
+        }
+      });
+      
+      expiredKeys.forEach(key => {
+        this.cachedElements.delete(key);
+        this.elementCacheExpiry.delete(key);
+      });
+    },
+    
+    // 批量更新元素样式 - 优化性能
+    batchUpdateElementStyles(elements, styleUpdates) {
+      if (!elements || elements.length === 0) return;
+      
+      // 使用 requestAnimationFrame 批量更新
+      requestAnimationFrame(() => {
+        elements.forEach(element => {
+          if (element && element.style) {
+            Object.assign(element.style, styleUpdates);
+          }
+        });
+      });
+    },
+    
+    // 批量添加/移除 CSS 类
+    batchUpdateElementClasses(elements, classUpdates) {
+      if (!elements || elements.length === 0) return;
+      
+      requestAnimationFrame(() => {
+        elements.forEach(({ element, addClasses = [], removeClasses = [] }) => {
+          if (element && element.classList) {
+            addClasses.forEach(className => {
+              element.classList.add(className);
+            });
+            removeClasses.forEach(className => {
+              element.classList.remove(className);
+            });
+          }
+        });
+      });
+    },
+    
+    // 优化的事件监听器添加方法
+    addOptimizedEventListener(element, event, handler, options = {}) {
+      const key = `${element}-${event}`;
+      
+      // 如果已经存在监听器，先移除
+      if (this.eventListeners.has(key)) {
+        this.removeOptimizedEventListener(element, event);
+      }
+      
+      // 自动添加 passive 选项以提高性能
+      if (this.passiveEvents.includes(event) && !options.hasOwnProperty('passive')) {
+        options.passive = true;
+      }
+      
+      // 添加事件监听器
+      element.addEventListener(event, handler, options);
+      
+      // 存储监听器引用
+      this.eventListeners.set(key, {
+        element,
+        event,
+        handler,
+        options
+      });
+    },
+    
+    // 优化的事件监听器移除方法
+    removeOptimizedEventListener(element, event) {
+      const key = `${element}-${event}`;
+      const listener = this.eventListeners.get(key);
+      
+      if (listener) {
+        listener.element.removeEventListener(listener.event, listener.handler, listener.options);
+        this.eventListeners.delete(key);
+      }
+    },
+    
+    // 清理所有事件监听器
+    clearAllEventListeners() {
+      this.eventListeners.forEach((listener, key) => {
+        listener.element.removeEventListener(listener.event, listener.handler, listener.options);
+      });
+      this.eventListeners.clear();
+    },
+    
+    // 智能节流事件处理
+    createThrottledHandler(handler, delay, key) {
+      if (this.eventThrottleMap.has(key)) {
+        return this.eventThrottleMap.get(key);
+      }
+      
+      const throttledHandler = throttle(handler, delay, { leading: true, trailing: true });
+      this.eventThrottleMap.set(key, throttledHandler);
+      return throttledHandler;
+    },
+    
+    // 智能防抖事件处理
+    createDebouncedHandler(handler, delay, key) {
+      if (this.eventDebounceMap.has(key)) {
+        return this.eventDebounceMap.get(key);
+      }
+      
+      const debouncedHandler = debounce(handler, delay);
+      this.eventDebounceMap.set(key, debouncedHandler);
+      return debouncedHandler;
+    },
+    
+    // 批量事件绑定 - 优化性能
+    batchAddEventListeners(elements, event, handler, options = {}) {
+      if (!elements || elements.length === 0) return;
+      
+      // 使用 requestAnimationFrame 批量处理
+      requestAnimationFrame(() => {
+        elements.forEach(element => {
+          if (element) {
+            this.addOptimizedEventListener(element, event, handler, options);
+          }
+        });
+      });
+    },
+    
+    // 批量事件解绑
+    batchRemoveEventListeners(elements, event) {
+      if (!elements || elements.length === 0) return;
+      
+      elements.forEach(element => {
+        if (element) {
+          this.removeOptimizedEventListener(element, event);
+        }
+      });
+    },
+    
+    // 内存管理优化方法
+    // 智能缓存管理 - 限制缓存大小
+    smartCacheSet(cache, key, value, maxSize = this.maxCacheSize) {
+      if (cache.size >= maxSize) {
+        // 删除最旧的条目（Map 保持插入顺序）
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
+      }
+      cache.set(key, value);
+      this.updateMemoryStats();
+    },
+    
+    // 更新内存统计
+    updateMemoryStats() {
+      this.memoryStats.cacheSize = this.cachedElements.size + this.connectionCache.size;
+      this.memoryStats.lastCleanup = Date.now();
+    },
+    
+    // 对象池管理 - 复用常用对象
+    getFromObjectPool(type, createFn) {
+      if (this.objectPool.has(type)) {
+        const pool = this.objectPool.get(type);
+        if (pool.length > 0) {
+          return pool.pop();
+        }
+      }
+      return createFn();
+    },
+    
+    // 归还对象到对象池
+    returnToObjectPool(type, obj, resetFn) {
+      if (!this.objectPool.has(type)) {
+        this.objectPool.set(type, []);
+      }
+      
+      const pool = this.objectPool.get(type);
+      if (pool.length < this.maxObjectPoolSize) {
+        // 重置对象状态
+        if (resetFn) {
+          resetFn(obj);
+        }
+        pool.push(obj);
+      }
+    },
+    
+    // 智能内存清理
+    smartMemoryCleanup() {
+      const now = Date.now();
+      const timeSinceLastCleanup = now - this.memoryStats.lastCleanup;
+      
+      // 如果距离上次清理超过5分钟，或者缓存过大，进行清理
+      if (timeSinceLastCleanup > 300000 || this.memoryStats.cacheSize > this.maxCacheSize) {
+        this.performMemoryCleanup();
+        this.memoryStats.cleanupCount++;
+      }
+    },
+    
+    // 执行内存清理
+    performMemoryCleanup() {
+      // 清理过期的 DOM 缓存
+      this.clearExpiredElementCache();
+      
+      // 清理连接线缓存
+      if (this.connectionCache.size > this.maxCacheSize / 2) {
+        this.connectionCache.clear();
+        this.lastVisibleEdgesHash = '';
+      }
+      
+      // 清理事件节流和防抖缓存
+      if (this.eventThrottleMap.size > 50) {
+        this.eventThrottleMap.clear();
+      }
+      if (this.eventDebounceMap.size > 50) {
+        this.eventDebounceMap.clear();
+      }
+      
+      // 清理对象池
+      this.objectPool.forEach((pool, type) => {
+        if (pool.length > this.maxObjectPoolSize / 2) {
+          pool.splice(0, pool.length - this.maxObjectPoolSize / 2);
+        }
+      });
+      
+      // 强制垃圾回收（如果支持）
+      if (window.gc) {
+        window.gc();
+      }
+      
+      this.updateMemoryStats();
+      console.log('Memory cleanup completed. Cache size:', this.memoryStats.cacheSize);
+    },
+    
+    // 使用 WeakMap 存储弱引用
+    setWeakRef(key, value) {
+      this.weakRefs.set(key, value);
+    },
+    
+    // 获取弱引用
+    getWeakRef(key) {
+      return this.weakRefs.get(key);
+    },
+    
+    // 优化的大数组处理
+    processLargeArray(array, processor, batchSize = 100) {
+      return new Promise((resolve) => {
+        let index = 0;
+        
+        const processBatch = () => {
+          const endIndex = Math.min(index + batchSize, array.length);
+          
+          for (let i = index; i < endIndex; i++) {
+            processor(array[i], i);
+          }
+          
+          index = endIndex;
+          
+          if (index < array.length) {
+            // 使用 requestIdleCallback 在空闲时处理下一批
+            if (window.requestIdleCallback) {
+              requestIdleCallback(processBatch, { timeout: 50 });
+            } else {
+              requestAnimationFrame(processBatch);
+            }
+          } else {
+            resolve();
+          }
+        };
+        
+        processBatch();
+      });
+    },
+    
+    // 内存使用监控
+    getMemoryUsage() {
+      const usage = {
+        cacheSize: this.memoryStats.cacheSize,
+        domCacheSize: this.cachedElements.size,
+        connectionCacheSize: this.connectionCache.size,
+        eventListenersSize: this.eventListeners.size,
+        objectPoolSize: Array.from(this.objectPool.values()).reduce((sum, pool) => sum + pool.length, 0),
+        lastCleanup: new Date(this.memoryStats.lastCleanup).toLocaleTimeString(),
+        cleanupCount: this.memoryStats.cleanupCount
+      };
+      
+      // 如果支持 performance.memory，添加更多信息
+      if (window.performance && window.performance.memory) {
+        const mem = window.performance.memory;
+        usage.usedJSHeapSize = Math.round(mem.usedJSHeapSize / 1024 / 1024) + 'MB';
+        usage.totalJSHeapSize = Math.round(mem.totalJSHeapSize / 1024 / 1024) + 'MB';
+        usage.jsHeapSizeLimit = Math.round(mem.jsHeapSizeLimit / 1024 / 1024) + 'MB';
+      }
+      
+      return usage;
+    },
+    
+    // 手动触发内存清理（用于调试）
+    manualMemoryCleanup() {
+      console.log('Manual memory cleanup triggered');
+      this.performMemoryCleanup();
+      console.log('Memory usage after cleanup:', this.getMemoryUsage());
+    },
+    
+    // 渲染性能优化方法
+    // 智能 DOM 更新调度
+    scheduleDOMUpdate(element, updateFn) {
+      this.pendingUpdates.add({ element, updateFn });
+      
+      if (!this.updateScheduled) {
+        this.updateScheduled = true;
+        requestAnimationFrame(() => {
+          this.flushDOMUpdates();
+        });
+      }
+    },
+    
+    // 批量执行 DOM 更新
+    flushDOMUpdates() {
+      if (this.pendingUpdates.size === 0) {
+        this.updateScheduled = false;
+        return;
+      }
+      
+      // 挂起重排和重绘
+      const updates = Array.from(this.pendingUpdates);
+      this.pendingUpdates.clear();
+      
+      // 批量执行更新
+      updates.forEach(({ element, updateFn }) => {
+        try {
+          updateFn(element);
+        } catch (error) {
+          console.warn('DOM update failed:', error);
+        }
+      });
+      
+      this.updateScheduled = false;
+    },
+    
+    // 启用硬件加速
+    enableHardwareAcceleration(element) {
+      if (!element || !this.renderOptimizations.useTransform3d) return;
+      
+      // 使用 transform3d 启用硬件加速
+      element.style.transform = 'translate3d(0, 0, 0)';
+      element.style.willChange = 'transform';
+      
+      // 缓存图层信息
+      this.layerCache.set(element, {
+        hasHardwareAcceleration: true,
+        timestamp: Date.now()
+      });
+    },
+    
+    // 优化图层
+    optimizeLayer(element, layerType = 'auto') {
+      if (!element || !this.renderOptimizations.enableLayerOptimization) return;
+      
+      const layerTypes = {
+        auto: 'auto',
+        transform: 'transform',
+        opacity: 'opacity',
+        scroll: 'scroll',
+        paint: 'paint'
+      };
+      
+      const layerTypeValue = layerTypes[layerType] || 'auto';
+      element.style.willChange = layerTypeValue;
+      
+      // 缓存图层信息
+      this.layerCache.set(element, {
+        layerType: layerTypeValue,
+        timestamp: Date.now()
+      });
+    },
+    
+    // 清理图层优化
+    cleanupLayerOptimization(element) {
+      if (!element) return;
+      
+      // 延迟清理，避免频繁切换
+      setTimeout(() => {
+        if (element.style) {
+          element.style.willChange = 'auto';
+        }
+        this.layerCache.delete(element);
+      }, 1000);
+    },
+    
+    // 优化的样式更新
+    updateElementStyleOptimized(element, styles) {
+      if (!element) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        Object.assign(el.style, styles);
+      });
+    },
+    
+    // 优化的类名更新
+    updateElementClassOptimized(element, { add = [], remove = [] } = {}) {
+      if (!element) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        add.forEach(className => el.classList.add(className));
+        remove.forEach(className => el.classList.remove(className));
+      });
+    },
+    
+    // 渲染性能监控
+    startRenderMonitoring() {
+      let lastTime = performance.now();
+      
+      const measureFrame = () => {
+        const currentTime = performance.now();
+        const frameTime = currentTime - lastTime;
+        
+        this.renderStats.frameCount++;
+        this.renderStats.lastFrameTime = frameTime;
+        
+        // 计算平均帧时间
+        this.renderStats.averageFrameTime = 
+          (this.renderStats.averageFrameTime * (this.renderStats.frameCount - 1) + frameTime) / this.renderStats.frameCount;
+        
+        this.renderStats.renderQueueSize = this.renderQueue.length;
+        
+        lastTime = currentTime;
+        requestAnimationFrame(measureFrame);
+      };
+      
+      requestAnimationFrame(measureFrame);
+    },
+    
+    // 获取渲染性能统计
+    getRenderStats() {
+      return {
+        ...this.renderStats,
+        fps: this.renderStats.averageFrameTime > 0 ? Math.round(1000 / this.renderStats.averageFrameTime) : 0,
+        layerCount: this.layerCache.size,
+        pendingUpdates: this.pendingUpdates.size
+      };
+    },
+    
+    // 优化的 jsPlumb 重绘
+    optimizedJsPlumbRepaint() {
+      if (!this.jsplumbInstance) return;
+      
+      // 使用 requestAnimationFrame 确保在下一帧执行
+      requestAnimationFrame(() => {
+        // 挂起绘制操作
+        this.jsplumbInstance.setSuspendDrawing(true);
+        
+        // 执行重绘
+        this.jsplumbInstance.repaintEverything();
+        
+        // 恢复绘制操作
+        this.jsplumbInstance.setSuspendDrawing(false, true);
+      });
+    },
+    
+    // 优化的连接线更新
+    optimizedConnectionUpdate(connections, updateFn) {
+      if (!connections || connections.length === 0) return;
+      
+      // 分批处理连接线更新
+      const batchSize = 20;
+      
+      for (let i = 0; i < connections.length; i += batchSize) {
+        const batch = connections.slice(i, i + batchSize);
+        
+        requestAnimationFrame(() => {
+          batch.forEach(conn => {
+            try {
+              updateFn(conn);
+            } catch (error) {
+              console.warn('Connection update failed:', error);
+            }
+          });
+        });
+      }
+    },
+    
+    // 渲染性能调试
+    debugRenderPerformance() {
+      const renderStats = this.getRenderStats();
+      const memoryUsage = this.getMemoryUsage();
+      
+      console.log('=== 渲染性能统计 ===');
+      console.log('FPS:', renderStats.fps);
+      console.log('平均帧时间:', renderStats.averageFrameTime.toFixed(2) + 'ms');
+      console.log('渲染队列大小:', renderStats.renderQueueSize);
+      console.log('图层数量:', renderStats.layerCount);
+      console.log('待更新元素:', renderStats.pendingUpdates);
+      
+      console.log('=== 内存使用统计 ===');
+      console.log('缓存大小:', memoryUsage.cacheSize);
+      console.log('DOM缓存:', memoryUsage.domCacheSize);
+      console.log('连接线缓存:', memoryUsage.connectionCacheSize);
+      console.log('事件监听器:', memoryUsage.eventListenersSize);
+      console.log('对象池大小:', memoryUsage.objectPoolSize);
+      
+      return { renderStats, memoryUsage };
+    },
+    
+    // CSS 优化方法
+    // 初始化动态样式表
+    initDynamicStyleSheet() {
+      if (this.styleSheet) return;
+      
+      const style = document.createElement('style');
+      style.id = 'dynamic-optimizations';
+      document.head.appendChild(style);
+      this.styleSheet = style.sheet;
+    },
+    
+    // 添加优化的 CSS 规则
+    addOptimizedCSSRule(selector, properties) {
+      if (!this.styleSheet) {
+        this.initDynamicStyleSheet();
+      }
+      
+      const ruleKey = `${selector}-${JSON.stringify(properties)}`;
+      if (this.cssCache.has(ruleKey)) return;
+      
+      const cssText = `${selector} { ${Object.entries(properties)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('; ')} }`;
+      
+      try {
+        this.styleSheet.insertRule(cssText, this.styleSheet.cssRules.length);
+        this.cssCache.set(ruleKey, true);
+      } catch (error) {
+        console.warn('Failed to add CSS rule:', error);
+      }
+    },
+    
+    // 应用 CSS containment 优化
+    applyCSSContainment(element, containment = 'layout style paint') {
+      if (!element || !this.cssOptimizations.useContainment) return;
+      
+      this.addOptimizedCSSRule(`#${element.id}`, {
+        'contain': containment
+      });
+    },
+    
+    // 应用 will-change 优化
+    applyWillChange(element, property = 'transform') {
+      if (!element || !this.cssOptimizations.enableWillChange) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        el.style.willChange = property;
+      });
+    },
+    
+    // 应用 backface-visibility 优化
+    applyBackfaceVisibility(element) {
+      if (!element || !this.cssOptimizations.useBackfaceVisibility) return;
+      
+      this.addOptimizedCSSRule(`#${element.id}`, {
+        'backface-visibility': 'hidden',
+        'transform-style': 'preserve-3d'
+      });
+    },
+    
+    // 应用 transform 优化
+    applyTransformOptimization(element, transform = 'translate3d(0, 0, 0)') {
+      if (!element || !this.cssOptimizations.enableTransformOptimization) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        el.style.transform = transform;
+      });
+    },
+    
+    // 应用 filter 优化
+    applyFilterOptimization(element, filter = 'none') {
+      if (!element || !this.cssOptimizations.useFilterOptimization) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        el.style.filter = filter;
+      });
+    },
+    
+    // 批量应用 CSS 优化
+    applyBatchCSSOptimizations(elements, optimizations = {}) {
+      if (!elements || elements.length === 0) return;
+      
+      elements.forEach(element => {
+        if (optimizations.containment) {
+          this.applyCSSContainment(element, optimizations.containment);
+        }
+        if (optimizations.willChange) {
+          this.applyWillChange(element, optimizations.willChange);
+        }
+        if (optimizations.backfaceVisibility) {
+          this.applyBackfaceVisibility(element);
+        }
+        if (optimizations.transform) {
+          this.applyTransformOptimization(element, optimizations.transform);
+        }
+        if (optimizations.filter) {
+          this.applyFilterOptimization(element, optimizations.filter);
+        }
+      });
+    },
+    
+    // 清理 CSS 优化
+    cleanupCSSOptimizations(element) {
+      if (!element) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        el.style.willChange = 'auto';
+        el.style.filter = 'none';
+      });
+    },
+    
+    // 优化的动画类添加
+    addOptimizedAnimationClass(element, className, duration = 1000) {
+      if (!element) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        el.classList.add(className);
+        
+        // 自动清理动画类
+        setTimeout(() => {
+          if (el.classList.contains(className)) {
+            el.classList.remove(className);
+          }
+        }, duration);
+      });
+    },
+    
+    // 优化的样式切换
+    toggleOptimizedStyle(element, styles, duration = 300) {
+      if (!element) return;
+      
+      this.scheduleDOMUpdate(element, (el) => {
+        Object.assign(el.style, styles);
+        
+        // 自动恢复样式
+        setTimeout(() => {
+          this.scheduleDOMUpdate(element, (el) => {
+            Object.keys(styles).forEach(key => {
+              el.style[key] = '';
+            });
+          });
+        }, duration);
+      });
+    },
+    
+    // CSS 性能调试
+    debugCSSPerformance() {
+      const cssStats = {
+        cssCacheSize: this.cssCache.size,
+        styleSheetRules: this.styleSheet ? this.styleSheet.cssRules.length : 0,
+        cssOptimizations: this.cssOptimizations,
+        layerCacheSize: this.layerCache.size
+      };
+      
+      console.log('=== CSS 性能统计 ===');
+      console.log('CSS 缓存大小:', cssStats.cssCacheSize);
+      console.log('动态样式表规则数:', cssStats.styleSheetRules);
+      console.log('图层缓存大小:', cssStats.layerCacheSize);
+      console.log('CSS 优化配置:', cssStats.cssOptimizations);
+      
+      return cssStats;
     },
 
     // 处理新的血缘数据
@@ -1559,6 +2911,11 @@ export default {
         // 更新数据
         this.json.nodes = data.nodes;
         this.json.edges = data.edges;
+        
+        // 检查是否需要启用虚拟化
+        if (this.shouldEnableVirtualization) {
+          this.showToastMessage(`节点数量较多(${data.nodes.length})，已启用虚拟化渲染以提高性能`);
+        }
         
         // 重新初始化画布
         await this.reinitializeCanvas();
@@ -1624,11 +2981,11 @@ export default {
       });
     },
 
-    // 新增：清空 SQL 查询
+    // 新增：清空 SQL 查询 - 优化版本
     clearSqlQuery() {
       this.sqlQuery = '';
       // 聚焦回输入框
-      const textarea = document.querySelector('.sql-textarea');
+      const textarea = this.getCachedQuerySelector('.sql-textarea');
       if (textarea) {
         textarea.focus();
       }
@@ -1654,6 +3011,39 @@ export default {
     // 字段模式下点击字段定位
     focusFieldFromList(field) {
       this.selectField(field);
+    },
+    // 清理所有 CSS 优化
+    cleanupAllCSSOptimizations() {
+      // 清理动态样式表
+      if (this.styleSheet && this.styleSheet.ownerNode) {
+        this.styleSheet.ownerNode.parentNode.removeChild(this.styleSheet.ownerNode);
+        this.styleSheet = null;
+      }
+      // 清理 CSS 缓存
+      if (this.cssCache) {
+        this.cssCache.clear();
+      }
+      // 清理图层缓存
+      if (this.layerCache) {
+        this.layerCache.clear();
+      }
+    },
+    
+    // 表类型筛选相关方法
+    selectAllTypes() {
+      this.selectedTableTypes = this.tableTypes.map(type => type.type);
+    },
+    
+    clearAllTypes() {
+      this.selectedTableTypes = [];
+    },
+
+    // 分组折叠/展开
+    toggleGroupCollapse(type) {
+      this.groupCollapseState[type] = !this.groupCollapseState[type];
+    },
+    isGroupCollapsed(type) {
+      return !!this.groupCollapseState[type];
     },
   }
 };
@@ -2551,6 +3941,26 @@ export default {
           flex-shrink: 0;
         }
       }
+      .node-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 10px 4px 10px;
+        font-size: 12px;
+        color: #8c8c8c;
+        font-weight: 500;
+        letter-spacing: 1px;
+        border-bottom: 1px dashed #e6eaf0;
+        margin-bottom: 2px;
+        .header-name {
+          flex: 1 1 0;
+          text-align: left;
+        }
+        .header-count {
+          min-width: 56px;
+          text-align: right;
+        }
+      }
     }
     .resize-handle {
       position: absolute;
@@ -2613,6 +4023,178 @@ export default {
 
       &:hover {
         background-color: #40a9ff;
+      }
+    }
+  }
+  
+  // 表类型筛选样式
+  .type-filter-section {
+    margin-top: 12px;
+    border-top: 1px solid #e6eaf0;
+    padding-top: 12px;
+    
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      
+      .filter-title {
+        font-size: 13px;
+        color: #1890ff;
+        font-weight: 500;
+      }
+      
+      .toggle-filter-btn {
+        background: none;
+        border: none;
+        color: #1890ff;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        
+        &:hover {
+          background: #e6f0ff;
+        }
+      }
+    }
+    
+    .filter-content {
+      .type-checkboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 8px;
+        
+        .type-checkbox {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 6px;
+          transition: background 0.2s;
+          
+          &:hover {
+            background: #f0f8ff;
+          }
+          
+          input[type="checkbox"] {
+            margin: 0;
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+          }
+          
+          .type-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid #e6eaf0;
+          }
+          
+          .type-name {
+            font-size: 12px;
+            color: #333;
+          }
+        }
+      }
+      
+      .filter-actions {
+        display: flex;
+        gap: 6px;
+        
+        .filter-action-btn {
+          flex: 1;
+          padding: 6px 12px;
+          border: 1px solid #e6eaf0;
+          border-radius: 4px;
+          background: #fff;
+          color: #666;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+          
+          &:hover {
+            background: #f0f8ff;
+            border-color: #1890ff;
+            color: #1890ff;
+          }
+        }
+      }
+    }
+  }
+  
+  // 分组显示开关样式
+  .group-toggle {
+    margin-top: 8px;
+    padding: 8px 0;
+    border-top: 1px solid #e6eaf0;
+    
+    .group-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      
+      input[type="checkbox"] {
+        margin: 0;
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+      }
+      
+      .toggle-text {
+        font-size: 12px;
+        color: #666;
+      }
+    }
+  }
+  
+  // 分组显示样式
+  .group-section {
+    margin-bottom: 16px;
+    
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #f8fafd;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      border-left: 3px solid #e6eaf0;
+      
+      .group-type-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 1px solid #e6eaf0;
+      }
+      
+      .group-title {
+        font-size: 12px;
+        color: #1890ff;
+        font-weight: 500;
+      }
+      
+      .group-toggle-btn {
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: #1890ff;
+        font-size: 14px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        &:hover {
+          background: #e6f0ff;
+        }
       }
     }
   }
@@ -2807,6 +4389,29 @@ export default {
     &:hover .radio-text {
       color: #1890ff;
     }
+  }
+}
+
+/* 虚拟化状态提示样式 */
+.virtualization-status {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
+  border: 1.5px solid #91d5ff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+  font-size: 13px;
+  color: #1890ff;
+  font-weight: 500;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: linear-gradient(135deg, #d0e7ff 0%, #e6f7ff 100%);
+    box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
   }
 }
 

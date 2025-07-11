@@ -12,8 +12,7 @@ def analyze_sql_lineage(data):
     请求体JSON格式:
     {
         "sql_query": "SQL查询语句",
-        "include_intermediate_tables": true/false,  # 可选，默认false
-        "filter_ctes": true/false,  # 可选，默认false
+        "filter_ctes": true/false,  # 可选，默认true，是否仅显示物理表
         "lineage_level": "table"/"column"  # 可选，默认"column"
     }
     
@@ -28,24 +27,21 @@ def analyze_sql_lineage(data):
             
         # 获取参数
         sql_query = data['sql_query']
-        include_intermediate_tables = data.get('include_intermediate_tables', True)
         filter_ctes = data.get('filter_ctes', True)
         lineage_level = data.get('lineage_level', 'column')  # 新增参数
         
         print(f"Processing SQL query: {sql_query}")
-        print(f"Parameters: include_intermediate_tables={include_intermediate_tables}, filter_ctes={filter_ctes}, lineage_level={lineage_level}")
+        print(f"Parameters: filter_ctes={filter_ctes}, lineage_level={lineage_level}")
         
         # 根据分析级别调用相应的函数
         if lineage_level == 'table':
             result = get_table_lineage_json(
                 sql_query=sql_query,
-                include_intermediate_tables=include_intermediate_tables,
                 filter_ctes=filter_ctes
             )
         else:  # column level
             result = get_lineage_json_from_parsed_output(
                 sql_query=sql_query,
-                include_intermediate_tables=include_intermediate_tables,
                 filter_ctes=filter_ctes
             )
         

@@ -102,17 +102,33 @@ const comm = {
             this.auxiliaryLinePos.offsetX = -(x / scale)
             this.auxiliaryLinePos.offsetY = -(y / scale)
         })
-        // 平移时设置鼠标样式
+        // 平移时设置鼠标样式 - 优化版本
         mainContainerWrap.style.cursor = "move";
-        mainContainerWrap.addEventListener("mousedown", function wrapMousedown() {
+        
+        // 使用优化的事件处理
+        const wrapMousedown = function() {
             this.style.cursor = "grabbing";
-            mainContainerWrap.addEventListener("mouseout", function wrapMouseout() {
-                this.style.cursor = "move";
-            });
-        });
-        mainContainerWrap.addEventListener("mouseup", function wrapMouseup() {
+        };
+        
+        const wrapMouseout = function() {
             this.style.cursor = "move";
-        });
+        };
+        
+        const wrapMouseup = function() {
+            this.style.cursor = "move";
+        };
+        
+        // 添加事件监听器
+        mainContainerWrap.addEventListener("mousedown", wrapMousedown);
+        mainContainerWrap.addEventListener("mouseout", wrapMouseout);
+        mainContainerWrap.addEventListener("mouseup", wrapMouseup);
+        
+        // 存储事件处理器引用，以便后续清理
+        this.panzoomEventHandlers = {
+            mousedown: wrapMousedown,
+            mouseout: wrapMouseout,
+            mouseup: wrapMouseup
+        };
     },
     //初始化节点位置  （以便对齐,居中）
     fixNodesPosition() {
