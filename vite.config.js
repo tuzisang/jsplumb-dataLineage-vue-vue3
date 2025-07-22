@@ -8,6 +8,12 @@ export default defineConfig({
   plugins: [
     vue(),
   ],
+  base: './', // <-- 关键：设置为相对路径
+  build: {
+    // 确保构建输出目录是 dist
+    outDir: 'dist',
+    emptyOutDir: true, 
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
