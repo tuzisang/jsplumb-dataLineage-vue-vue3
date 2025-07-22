@@ -17,5 +17,16 @@ def handle_lineage():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    # 简单账号密码校验，生产环境请用数据库和加密
+    if username == 'tzz' and password == '2302200':
+        return jsonify({'token': 'demo_token', 'username': username}), 200
+    else:
+        return jsonify({'error': '账号或密码错误'}), 401
+
 if __name__ == '__main__':
     app.run(port=5000) 
