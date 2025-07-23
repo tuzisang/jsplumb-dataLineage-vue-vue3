@@ -429,10 +429,10 @@
       ></div>
     </div>
 
-    <!-- 虚拟化状态提示 -->
-    <div v-if="virtualizationEnabled" class="virtualization-status">
+    <!-- 虚拟化状态提示 --> -->
+     <div v-if="virtualizationEnabled" class="virtualization-status"> -->
       <span>虚拟化渲染已启用 ({{ computedVisibleNodes.length }}/{{ json.nodes.length }} 节点)</span>
-    </div>
+    </div> 
 
     <!-- 作者署名 -->
     <div class="author-signature">
@@ -454,7 +454,7 @@ import colorFields from './config/tableTypeMappingColor'
 
 const VIEWPORT_PADDING = 500; // 可视区域外的缓冲区大小
 const BATCH_SIZE = 10; // 批量处理的节点数量
-const VIRTUALIZATION_ENABLED = true; // 启用虚拟化渲染
+const VIRTUALIZATION_ENABLED = false; // 启用虚拟化渲染
 const MAX_NODES_FOR_VIRTUALIZATION = 50; // 超过此数量启用虚拟化
 
 const jsplumb = jsplumbModule.jsPlumb
@@ -2919,9 +2919,9 @@ export default {
         this.json.edges = data.edges;
         
         // 检查是否需要启用虚拟化
-        if (this.shouldEnableVirtualization) {
-          this.showToastMessage(`节点数量较多(${data.nodes.length})，已启用虚拟化渲染以提高性能`);
-        }
+       if (this.shouldEnableVirtualization) {
+         this.showToastMessage(`节点数量较多(${data.nodes.length})，已启用虚拟化渲染以提高性能`);
+       }
         
         // 重新初始化画布
         await this.reinitializeCanvas();
