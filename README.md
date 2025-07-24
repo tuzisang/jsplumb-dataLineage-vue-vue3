@@ -44,7 +44,7 @@ cd jsplumb-dataLineage-vue-vue3
 如果您想在本地进行开发，需要以下环境：
 
 ### 前端环境
-- Node.js
+- Node.js 22.11.0
 - npm
 
 前端启动步骤：
@@ -57,7 +57,7 @@ npm run dev
 ```
 
 ### 后端环境
-- Python 3.10+
+- Python 3.12.9
 - pip
 
 后端启动步骤：
