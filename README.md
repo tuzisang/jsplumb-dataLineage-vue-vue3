@@ -62,11 +62,13 @@ npm run dev
 
 后端启动步骤：
 ```bash
-# 进入后端目录
-cd api
+
 
 # 安装依赖
 pip install -r requirements.txt
+
+# 进入后端目录
+cd api
 
 # 启动服务器
 python server.py
