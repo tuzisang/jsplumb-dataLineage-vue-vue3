@@ -1,6 +1,6 @@
 <template>
-  <LoginDialog v-if="showLoginDialog" @login-success="handleLoginSuccess" />
-  <div class="app-container" :class="{ 'blurred': showLoginDialog }">
+  <!-- <LoginDialog v-if="showLoginDialog" @login-success="handleLoginSuccess" /> -->
+  <div class="app-container" :class="{ 'blurred': false }">
   <!-- SQL 输入面板 -->
   <div class="sql-container">
     <!-- 最小化按钮单独放置 -->
@@ -448,7 +448,7 @@ import comm from './methods/comm'
 import { debounce, throttle } from 'lodash-es'
 
 import TableNode from './components/TableNode.vue'
-import LoginDialog from './components/LoginDialog.vue'
+// import LoginDialog from './components/LoginDialog.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
 
@@ -462,7 +462,7 @@ export default {
   name: 'Index',
   components: {
     TableNode,
-    LoginDialog
+    // LoginDialog
   },
   data() {
     return {
@@ -580,12 +580,10 @@ export default {
       },
       cssCache: new Map(), // CSS 样式缓存
       styleSheet: null, // 动态样式表
-      isLoggedIn: false,
-      showLoginDialog: false,
     };
   },
   mounted() {
-    this.checkLogin();
+    // this.checkLogin();
     this.renderDefaultLineage()
     
     // 使用优化的事件监听器添加方法
@@ -3050,20 +3048,6 @@ export default {
     },
     isGroupCollapsed(type) {
       return !!this.groupCollapseState[type];
-    },
-    checkLogin() {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        this.showLoginDialog = true;
-        this.isLoggedIn = false;
-      } else {
-        this.isLoggedIn = true;
-        this.showLoginDialog = false;
-      }
-    },
-    handleLoginSuccess() {
-      this.isLoggedIn = true;
-      this.showLoginDialog = false;
     },
   }
 };
