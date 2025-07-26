@@ -2,19 +2,18 @@
 const tableTypeMappingColor = [
     { //源表 早苗绿
         color: "#91c051",
-        type: "Origin"
+        type: "Origin",
+        label: "来源表"
     },
     { //中间表 ミク葱绿
         color: "#39c5bb",
-        type: "Middle"
-    },
-    { //union表 天依蓝
-        color: "#66ccff",
-        type: "Union"
+        type: "Middle",
+        label: "中间表"
     },
     { //结果表 小菊橙
         color: "#ef8014",
-        type: "RS"
+        type: "RS",
+        label: "结果表"
     },
     {
         color: "#ffed4a",

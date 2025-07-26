@@ -25,7 +25,7 @@ def get_table_lineage_json(
     """
     try:
         # 分割多个SQL语句
-        statements = sql_query.strip().split(';')
+        statements = sql_query.strip().split(';\n')
         statements = [stmt.strip() for stmt in statements if stmt.strip()]
         
         # 存储所有表的信息

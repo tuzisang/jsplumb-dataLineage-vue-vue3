@@ -32,7 +32,7 @@ def get_lineage_json_from_parsed_output(
     """
     try:
         # 修改：为每个SQL语句分别处理源表和目标表
-        statements = sql_query.strip().split(';')
+        statements = sql_query.strip().split(';\n')
         statements = [stmt.strip() for stmt in statements if stmt.strip()]
         
         # 存储每个语句的血缘关系

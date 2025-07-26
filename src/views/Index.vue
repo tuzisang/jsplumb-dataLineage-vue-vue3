@@ -185,7 +185,7 @@
             class="color-indicator"
             :style="{ backgroundColor: type.color }"
           ></span>
-          <span class="type-name">{{ type.type }}</span>
+          <span class="type-name">{{ type.label || type.type }}</span>
         </div>
       </div>
     </div>
@@ -256,7 +256,7 @@
                   class="type-indicator"
                   :style="{ backgroundColor: type.color }"
                 ></span>
-                <span class="type-name">{{ type.type }}</span>
+                <span class="type-name">{{ type.label || type.type }}</span>
               </label>
             </div>
             
@@ -311,7 +311,7 @@
                   class="group-type-indicator"
                   :style="{ backgroundColor: getTableColor(type) }"
                 ></span>
-                <span class="group-title">{{ type }} ({{ nodes.length }})</span>
+                <span class="group-title">{{ getTableTypeLabel(type) }} ({{ nodes.length }})</span>
                 <button 
                   type="button"
                   class="group-toggle-btn" 
@@ -383,7 +383,7 @@
                   class="group-type-indicator"
                   :style="{ backgroundColor: getTableColor(type) }"
                 ></span>
-                <span class="group-title">{{ type }} ({{ fields.length }})</span>
+                <span class="group-title">{{ getTableTypeLabel(type) }} ({{ fields.length }})</span>
                 <button 
                   type="button"
                   class="group-toggle-btn" 
@@ -432,7 +432,7 @@
     <!-- 虚拟化状态提示 --> -->
      <div v-if="virtualizationEnabled" class="virtualization-status"> -->
       <span>虚拟化渲染已启用 ({{ computedVisibleNodes.length }}/{{ json.nodes.length }} 节点)</span>
-    </div> 
+    </div>
 
     <!-- 作者署名 -->
     <div class="author-signature">
@@ -1290,6 +1290,12 @@ export default {
     getTableColor(type) {
       const colorField = this.tableTypes.find(t => t.type === type);
       return colorField ? colorField.color : '#ddd';
+    },
+
+    // 获取表类型对应的中文标签
+    getTableTypeLabel(type) {
+      const colorField = this.tableTypes.find(t => t.type === type);
+      return colorField ? (colorField.label || colorField.type) : type;
     },
 
     // 增强的搜索处理
@@ -2917,9 +2923,9 @@ export default {
         this.json.edges = data.edges;
         
         // 检查是否需要启用虚拟化
-       if (this.shouldEnableVirtualization) {
-         this.showToastMessage(`节点数量较多(${data.nodes.length})，已启用虚拟化渲染以提高性能`);
-       }
+        if (this.shouldEnableVirtualization) {
+          this.showToastMessage(`节点数量较多(${data.nodes.length})，已启用虚拟化渲染以提高性能`);
+        }
         
         // 重新初始化画布
         await this.reinitializeCanvas();
