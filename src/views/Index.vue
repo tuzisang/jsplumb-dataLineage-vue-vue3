@@ -84,48 +84,77 @@
   >
     {{ toastMessage }}
   </div>
+  
+  <!-- 小地图 -->
+  <MiniMap
+    v-if="showMiniMap && json.nodes.length > 0"
+    :nodes="json.nodes"
+    :edges="json.edges"
+    :transform="getTransform()"
+    :container-size="getContainerSize()"
+    :width="180"
+    :height="120"
+    @navigate="handleMinimapNavigate"
+  />
 
     <!-- 镜头定位按钮 -->
     <div 
-      v-if="showOnlyCriticalPath && highlightedFields.length > 0"
+      v-if="showOnlyCriticalPath && ((lineageLevel === 'column' && highlightedFields.length > 0) || (lineageLevel === 'table' && highlightedTables.length > 0))"
       class="camera-controls"
     >
       <div class="camera-info">
-        <span class="field-counter">{{ currentFieldIndex + 1 }} / {{ highlightedFields.length }}</span>
+        <span class="field-counter" v-if="lineageLevel === 'column'">{{ currentFieldIndex + 1 }} / {{ highlightedFields.length }}</span>
+        <span class="field-counter" v-if="lineageLevel === 'table'">{{ currentTableIndex + 1 }} / {{ highlightedTables.length }}</span>
       </div>
       <button 
         class="camera-button"
-        @click="focusNextField"
-        title="移动到下一个相关字段"
+        @click="lineageLevel === 'column' ? focusNextField() : focusNextTable()"
+        :title="lineageLevel === 'column' ? '移动到下一个相关字段' : '移动到下一个相关表'"
       >
         <i class="camera-icon">🎯</i>
       </button>
     </div>
 
-    <!-- 批量操作按钮和关键路径开关 -->
+    <!-- 批量操作按钮 -->
     <div class="batch-actions">
-      <button 
+      <!-- 仅显示关键路径切换按钮 -->
+      <button
         class="batch-action-btn"
-        @click="handleShowAllNodes"
-        :disabled="hiddenNodes.size === 0"
+        @click="toggleCriticalPath"
+        :class="{ 'active': showOnlyCriticalPath }"
       >
-        <i class="show-icon">👁️</i>
-        显示所有隐藏的表
+        <i class="filter-icon">🔍</i>
+        {{ showOnlyCriticalPath ? '显示所有节点' : '仅显示关键路径' }}
       </button>
       
-      <label class="critical-path-toggle">
-        <input 
-          type="checkbox" 
-          v-model="showOnlyCriticalPath"
-          @change="handleCriticalPathToggle"
-        />
-        <span class="toggle-label">仅显示关键路径</span>
-      </label>
+      <!-- 小地图切换按钮 -->
+      <button
+        class="batch-action-btn"
+        @click="toggleMiniMap"
+        :class="{ 'active': showMiniMap }"
+      >
+        <i class="map-icon">🗺️</i>
+        {{ showMiniMap ? '隐藏小地图' : '显示小地图' }}
+      </button>
+      
+      <!-- 显示所有节点按钮 -->
+      <button
+        v-if="hiddenNodes.size > 0"
+        class="batch-action-btn"
+        @click="handleShowAllNodes"
+      >
+        <i class="show-all-icon">👁️</i>
+        显示所有隐藏节点
+      </button>
     </div>
 
     <div class="flow-wrapper" ref="flowWrap">
       <!-- 添加加载遮罩 -->
-      <div v-if="isAnalyzing" class="loading-overlay">
+      <div 
+        v-if="isAnalyzing" 
+        class="loading-overlay"
+        :class="{ 'high-performance': performanceConfig.highPerformanceMode }"
+      >
         <div class="loading-spinner"></div>
         <div class="loading-text">正在分析血缘关系...</div>
       </div>
@@ -133,21 +162,18 @@
         <TableNode
             v-for="node in computedVisibleNodes"
             :key="node.name"
-            :id="node.name"
             :node="node"
-            :highlighted-fields="highlightedFields"
-            :highlighted-tables="highlightedTables"
-            :style="getNodeVisibility(node)"
-            :is-disabled="isNodeDisabled(node)"
-            :is-hidden="hiddenNodes.has(node.name)"
-            :is-table-mode="lineageLevel === 'table'"
-            :edges="computedVisibleEdges"
-            @field-click="handleFieldClick"
+            :highlightedFields="highlightedFields"
+            :highlightedTables="highlightedTables"
+            :isDisabled="isNodeDisabled(node)"
+            :edges="json.edges"
+            :isTableMode="lineageLevel === 'table'"
+            :minus="minus"
+            :focusedNode="focusedNode"
+            @hide-node="toggleNodeVisibility"
+            @copy-fields="copyFields"
+            @field-click="selectField"
             @table-name-click="handleTableNameClick"
-            @table-highlight="handleTableHighlight"
-            @copy-success="handleCopySuccess"
-            @copy-error="handleCopyError"
-            @hide-node="handleNodeVisibility"
         />
 
         <!-- 辅助线 -->
@@ -347,17 +373,18 @@
             </div>
           </template>
           <template v-else>
-            <div 
-              v-for="node in filteredNodeList" 
-              :key="node.name"
-              class="node-list-item"
-              :class="{
-                'node-hidden': hiddenNodes.has(node.name),
-                'node-focused': focusedNode === node.name,
-                'search-highlight': isNodeHighlighted(node)
-              }"
-              @click="focusOnNode(node)"
-            >
+                      <div
+            v-for="node in filteredNodeList"
+            :key="node.name"
+            class="node-list-item"
+            :data-node="node.name"
+            :class="{
+              'node-hidden': hiddenNodes.has(node.name),
+              'node-focused': focusedNode === node.name,
+              'search-highlight': isNodeHighlighted(node)
+            }"
+            @click="focusOnNode(node)"
+          >
               <span 
                 class="node-type-indicator"
                 :style="{ backgroundColor: getTableColor(node.type) }"
@@ -436,7 +463,7 @@
 
     <!-- 作者署名 -->
     <div class="author-signature">
-      <span>作者：tizisang</span>
+      <span>作者：tuzisang</span>
     </div>
   </div>
 </template>
@@ -448,6 +475,7 @@ import comm from './methods/comm'
 import { debounce, throttle } from 'lodash-es'
 
 import TableNode from './components/TableNode.vue'
+import MiniMap from './components/MiniMap.vue'
 // import LoginDialog from './components/LoginDialog.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
@@ -462,6 +490,7 @@ export default {
   name: 'Index',
   components: {
     TableNode,
+    MiniMap,
     // LoginDialog
   },
   data() {
@@ -474,12 +503,13 @@ export default {
         edges: []
       },
       lineageLevel: 'column', // 默认为列级分析
+      showMiniMap: true, // 控制小地图显示
       commConfig: commConfig,
       auxiliaryLine: {isShowXLine: false, isShowYLine: false},
       auxiliaryLinePos: {width: '100%', height: '100%', offsetX: 0, offsetY: 0, x: 20, y: 20},
       minus: '-',
       anchorArr: ['Left', 'Right'],
-      commGrid: [5, 5],
+      commGrid: [2, 2],
       searchQuery: '',
       showDropdown: false,
       filteredFields: [],
@@ -501,6 +531,7 @@ export default {
       nodePositions: new Map(),
       isInitializing: false,
       currentFieldIndex: 0,
+      currentTableIndex: 0, // 表级关键路径跳转索引
       hiddenNodes: new Set(),
       hiddenNodesConnections: null,
       nodeSearchQuery: '',
@@ -580,21 +611,44 @@ export default {
       },
       cssCache: new Map(), // CSS 样式缓存
       styleSheet: null, // 动态样式表
+      repaintRequestId: null, // 用于存储渲染请求ID
+      
+      // 性能配置
+      performanceConfig: {
+        // 是否启用辅助线
+        enableAlignmentLines: false,
+        // 拖动时是否重绘连接线
+        redrawConnectionsWhileDragging: false,
+        // 是否使用硬件加速
+        useHardwareAcceleration: true,
+        // 是否启用平滑滚动
+        enableSmoothScroll: false,
+        // 是否启用动画
+        enableAnimations: false,
+        // 是否使用高性能模式(默认启用)
+        highPerformanceMode: true,
+        // 是否显示性能统计
+        showPerformanceStats: false
+      }
     };
   },
   mounted() {
     // this.checkLogin();
-    this.renderDefaultLineage()
+    
+    // 先应用高性能模式
+    this.applyHighPerformanceMode();
+    
+    this.renderDefaultLineage();
     
     // 使用优化的事件监听器添加方法
     this.addOptimizedEventListener(document, 'click', this.handleClickOutside);
     
-    // 使用智能节流处理滚动事件
-    const throttledScrollHandler = this.createThrottledHandler(this.handleScroll, 16, 'scroll');
+    // 使用智能节流处理滚动事件 - 减少节流时间提高响应速度
+    const throttledScrollHandler = this.createThrottledHandler(this.handleScroll, 8, 'scroll');
     this.addOptimizedEventListener(this.$refs.flowWrap, 'scroll', throttledScrollHandler, { passive: true });
     
-    // 使用智能防抖处理窗口调整大小
-    const debouncedResizeHandler = this.createDebouncedHandler(this.handleResize, 100, 'resize');
+    // 使用智能防抖处理窗口调整大小 - 减少防抖时间提高响应速度
+    const debouncedResizeHandler = this.createDebouncedHandler(this.handleResize, 50, 'resize');
     this.addOptimizedEventListener(window, 'resize', debouncedResizeHandler);
     
     this.addOptimizedEventListener(document, 'mousemove', this.handleResize);
@@ -618,6 +672,13 @@ export default {
     
     // 初始化动态样式表
     this.initDynamicStyleSheet();
+    
+    // 保存高性能模式设置到 localStorage
+    try {
+      localStorage.setItem('highPerformanceMode', 'true');
+    } catch (e) {
+      console.warn('无法保存性能模式偏好:', e);
+    }
   },
   beforeDestroy() {
     // 清理连接线缓存
@@ -983,34 +1044,92 @@ export default {
       const container = this.$refs.flowWrap;
       if (!container) return;
       
-      const scale = this.jsplumbInstance ? this.jsplumbInstance.getZoom() : 1;
-      
-      this.viewportTop = container.scrollTop / scale;
-      this.viewportBottom = (container.scrollTop + container.clientHeight) / scale;
-      this.viewportLeft = container.scrollLeft / scale;
-      this.viewportRight = (container.scrollLeft + container.clientWidth) / scale;
-      
-      // 更新视口边界
-      this.viewportBounds = {
-        top: this.viewportTop,
-        bottom: this.viewportBottom,
-        left: this.viewportLeft,
-        right: this.viewportRight
-      };
-      
-      // 如果启用了虚拟化，更新可见元素
-      if (this.virtualizationEnabled) {
-        this.updateVisibleElements();
-      }
-    }, 16),
+      // 使用 requestAnimationFrame 优化性能
+      requestAnimationFrame(() => {
+        const scale = this.jsplumbInstance ? this.jsplumbInstance.getZoom() : 1;
+        
+        // 优化计算，减少重排
+        const scrollTop = container.scrollTop;
+        const scrollLeft = container.scrollLeft;
+        const clientHeight = container.clientHeight;
+        const clientWidth = container.clientWidth;
+        
+        this.viewportTop = scrollTop / scale;
+        this.viewportBottom = (scrollTop + clientHeight) / scale;
+        this.viewportLeft = scrollLeft / scale;
+        this.viewportRight = (scrollLeft + clientWidth) / scale;
+        
+        // 更新视口边界
+        this.viewportBounds = {
+          top: this.viewportTop,
+          bottom: this.viewportBottom,
+          left: this.viewportLeft,
+          right: this.viewportRight
+        };
+        
+        // 如果启用了虚拟化，更新可见元素
+        if (this.virtualizationEnabled) {
+          this.updateVisibleElements();
+        }
+      });
+    }, 8), // 减少节流时间，提高响应速度
     
     // 更新可见元素
     updateVisibleElements() {
       if (!this.virtualizationEnabled) return;
       
-      // 使用智能连接线渲染
-      this.$nextTick(() => {
+      // 使用 requestAnimationFrame 优化性能
+      requestAnimationFrame(() => {
+        // 计算当前可见节点的哈希值，用于判断是否需要更新
+        const visibleNodesHash = this.computedVisibleNodes
+          .map(node => node.name)
+          .sort()
+          .join('|');
+        
+        // 如果可见节点没有变化，只更新连接线
+        if (visibleNodesHash === this._lastVisibleNodesHash) {
+          this.smartRenderConnections();
+          return;
+        }
+        
+        // 更新节点哈希值
+        this._lastVisibleNodesHash = visibleNodesHash;
+        
+        // 使用智能连接线渲染
         this.smartRenderConnections();
+        
+        // 优化不可见节点的性能
+        this.optimizeOffscreenNodes();
+      });
+    },
+    
+    // 优化屏幕外节点性能
+    optimizeOffscreenNodes() {
+      if (!this.virtualizationEnabled) return;
+      
+      const { top, bottom, left, right } = this.viewportBounds;
+      const padding = VIEWPORT_PADDING;
+      const visibleNodeNames = new Set(this.computedVisibleNodes.map(node => node.name));
+      
+      // 对所有节点进行优化
+      this.json.nodes.forEach(node => {
+        const isVisible = visibleNodeNames.has(node.name);
+        const element = this.getCachedElement(node.name);
+        
+        if (element) {
+          if (isVisible) {
+            // 可见节点启用硬件加速
+            element.style.willChange = 'transform';
+            element.style.transform = 'translate3d(0, 0, 0)';
+            element.style.visibility = 'visible';
+            element.style.pointerEvents = 'auto';
+          } else {
+            // 不可见节点优化性能
+            element.style.willChange = 'auto';
+            element.style.visibility = 'hidden';
+            element.style.pointerEvents = 'none';
+          }
+        }
       });
     },
     
@@ -1088,9 +1207,43 @@ export default {
         edges: this.computedVisibleEdges
       });
       
-      // 将渲染任务加入队列
+      // 优先处理可视区域内的连接线
+      const visibleConnections = this.getVisibleConnections();
+      
+      // 将渲染任务加入队列，优先处理可视区域内的连接
       this.renderQueue.push(() => {
-        this.updateJsPlumbConnections();
+        if (visibleConnections.length > 0) {
+          // 挂起绘制以提高性能
+          this.jsplumbInstance.setSuspendDrawing(true);
+          
+          // 批量处理可见连接
+          this.batchProcessConnections(visibleConnections, conn => {
+            const sourceId = conn.sourceId.split(this.minus)[0];
+            const targetId = conn.targetId.split(this.minus)[0];
+            
+            // 检查源节点和目标节点是否在可见节点列表中
+            const isSourceVisible = this.computedVisibleNodes.some(node => node.name === sourceId);
+            const isTargetVisible = this.computedVisibleNodes.some(node => node.name === targetId);
+            
+            // 如果两个端点都可见，显示连接线，否则隐藏
+            conn.setVisible(isSourceVisible && isTargetVisible);
+            
+            // 对可见的连接线应用硬件加速
+            if (isSourceVisible && isTargetVisible) {
+              const connector = conn.getConnector();
+              if (connector && connector.canvas) {
+                connector.canvas.style.willChange = 'transform';
+                connector.canvas.style.transform = 'translateZ(0)';
+              }
+            }
+          });
+          
+          // 恢复绘制
+          this.jsplumbInstance.setSuspendDrawing(false, true);
+        } else {
+          // 如果没有可见连接，使用默认方法更新
+          this.updateJsPlumbConnections();
+        }
       });
       
       // 如果队列中有任务且没有在渲染，开始渲染
@@ -1099,7 +1252,7 @@ export default {
       }
     },
     
-    // 处理渲染队列
+    // 处理渲染队列 - 优化版本
     processRenderQueue() {
       if (this.renderQueue.length === 0) {
         this.isRendering = false;
@@ -1107,25 +1260,36 @@ export default {
       }
       
       this.isRendering = true;
-      const renderTask = this.renderQueue.shift();
       
-      if (window.requestIdleCallback) {
-        requestIdleCallback(() => {
-          renderTask();
-          // 继续处理队列中的下一个任务
-          setTimeout(() => {
-            this.processRenderQueue();
-          }, 0);
-        }, { timeout: 50 });
-      } else {
-        requestAnimationFrame(() => {
-          renderTask();
-          // 继续处理队列中的下一个任务
-          setTimeout(() => {
-            this.processRenderQueue();
-          }, 0);
-        });
+      // 优先处理队列中的任务
+      const taskCount = Math.min(this.renderQueue.length, 3); // 每次最多处理3个任务
+      const tasks = [];
+      
+      for (let i = 0; i < taskCount; i++) {
+        tasks.push(this.renderQueue.shift());
       }
+      
+      // 使用 requestAnimationFrame 确保视觉流畅性
+      requestAnimationFrame(() => {
+        // 批量执行任务
+        tasks.forEach(task => {
+          try {
+            task();
+          } catch (error) {
+            console.warn('Render task failed:', error);
+          }
+        });
+        
+        // 如果还有任务，继续处理
+        if (this.renderQueue.length > 0) {
+          // 使用 setTimeout 避免阻塞主线程
+          setTimeout(() => {
+            this.processRenderQueue();
+          }, 0);
+        } else {
+          this.isRendering = false;
+        }
+      });
     },
     // 获取节点位置样式 - 渲染性能优化版本
     getNodePosition(node) {
@@ -1208,14 +1372,16 @@ export default {
     handleScroll() {
       if (this.isInitializing) return;
       
-      // 更新视口
-      this.updateViewport();
-      
-      // 如果启用了虚拟化，不需要重新绘制所有连接线
-      if (!this.virtualizationEnabled) {
-        // 使用优化的连接线重绘
-        this.redrawConnectionsSoft();
-      }
+      // 更新视口 - 使用 requestAnimationFrame 优化性能
+      requestAnimationFrame(() => {
+        this.updateViewport();
+        
+        // 如果启用了虚拟化，不需要重新绘制所有连接线
+        if (!this.virtualizationEnabled) {
+          // 使用优化的连接线重绘
+          this.redrawConnectionsSoft();
+        }
+      });
     },
     // 处理窗口调整大小 - 优化版本
     handleResize: debounce(function() {
@@ -1232,9 +1398,8 @@ export default {
     draggableNode(nodeID) {
       if (!this.jsplumbInstance) return;
       
-      // 使用智能节流处理拖动事件
-      const throttledDragHandler = this.createThrottledHandler((params) => {
-        this.alignForLine(nodeID, params.pos);
+      // 直接处理拖动事件，不使用节流
+      const dragHandler = (params) => {
         // 更新节点位置缓存
         const node = this.nodePositions.get(nodeID);
         if (node) {
@@ -1242,20 +1407,28 @@ export default {
           node.left = params.pos[0];
         }
         
+        // 在拖动过程中完全暂停连接线重绘
+        this.jsplumbInstance.setSuspendDrawing(true);
+        
         // 优化拖动时的渲染性能
         const element = this.getCachedElement(nodeID);
-        if (element && this.renderOptimizations.enableLayerOptimization) {
-          this.optimizeLayer(element, 'transform');
+        if (element) {
+          // 使用硬件加速提高拖动流畅度
+          element.style.willChange = 'transform';
+          element.style.transform = 'translate3d(0, 0, 0)';
           
-          // 应用 CSS 优化
-          this.applyWillChange(element, 'transform');
-          this.applyTransformOptimization(element, 'translate3d(0, 0, 0)');
+          // 添加更多优化以提高跟手感
+          if (this.renderOptimizations.enableLayerOptimization) {
+            this.optimizeLayer(element, 'transform');
+            this.applyTransformOptimization(element, 'translate3d(0, 0, 0)');
+          }
         }
-      }, 16, `drag-${nodeID}`);
+      };
       
       this.jsplumbInstance.draggable(nodeID, {
-        grid: this.commGrid,
-        drag: throttledDragHandler,
+        // 使用更小的网格尺寸以获得更平滑的拖动体验
+        grid: [2, 2],
+        drag: dragHandler,
         stop: (params) => {
           this.auxiliaryLine.isShowXLine = false;
           this.auxiliaryLine.isShowYLine = false;
@@ -1266,10 +1439,13 @@ export default {
           if (element) {
             this.cleanupLayerOptimization(element);
             this.cleanupCSSOptimizations(element);
+            
+            // 恢复默认状态
+            element.style.willChange = 'auto';
           }
           
-          // 使用优化的连接线重绘
-          this.optimizedJsPlumbRepaint();
+          // 恢复连接线绘制并重绘
+          this.jsplumbInstance.setSuspendDrawing(false, true);
         }
       });
     },
@@ -1344,18 +1520,32 @@ export default {
     },
     // 选择字段 - 优化版本
     async selectField(field) {
+      console.log("选择字段:", field.tableName, field.fieldName);
       this.highlightFieldLineage(field.tableName, field.fieldName);
       this.showDropdown = false;
-
-      // 使用缓存的 DOM 元素
-      const fieldId = `${field.tableName}${this.minus}${field.fieldName}`;
-      const fieldElement = this.getCachedElement(fieldId);
       
-      if (!fieldElement) return;
+      // 确保表节点可见（如果被隐藏）
+      if (this.hiddenNodes.has(field.tableName)) {
+        this.toggleNodeVisibility({ tableName: field.tableName, isHidden: false });
+        // 等待节点显示
+        await this.$nextTick();
+      }
+
+      // 直接获取DOM元素，避免缓存问题
+      const fieldId = `${field.tableName}${this.minus}${field.fieldName}`;
+      const fieldElement = document.getElementById(fieldId);
+      
+      if (!fieldElement) {
+        console.warn("无法找到字段元素:", fieldId);
+        return;
+      }
 
       // 获取panzoom实例
       const pan = this.jsplumbInstance.pan;
-      if (!pan) return;
+      if (!pan) {
+        console.warn("无法获取panzoom实例");
+        return;
+      }
 
       // 1. 设置固定缩放比例
       const targetZoom = 1.2;
@@ -1386,18 +1576,27 @@ export default {
       // 计算需要移动的距离，使字段居中
       const targetX = containerCenterX - fieldCenterX;
       const targetY = containerCenterY - fieldCenterY;
+      
+      console.log("移动到位置:", targetX, targetY);
 
       // 4. 添加动画效果
-      const tableFlow = this.getCachedQuerySelector('.table-flow');
+      const tableFlow = document.querySelector('.table-flow');
       if (tableFlow) {
         tableFlow.classList.add('camera-animate');
       }
 
       // 5. 移动到目标位置
-      pan.moveTo(targetX, targetY);
+      try {
+        pan.moveTo(targetX, targetY);
+      } catch (error) {
+        console.error("移动画布失败:", error);
+      }
 
       // 6. 添加字段高亮动画
-      this.addOptimizedAnimationClass(fieldElement, 'field-focus-animation', 1500);
+      fieldElement.classList.add('field-focus-animation');
+      setTimeout(() => {
+        fieldElement.classList.remove('field-focus-animation');
+      }, 1500);
       
       // 7. 清理动画类
       setTimeout(() => {
@@ -1420,18 +1619,37 @@ export default {
     },
     // 处理表名点击事件
     handleTableNameClick(tableInfo) {
+      // 复制表名到剪贴板
       this.copyToClipboard(tableInfo.tableName, `表名 "${tableInfo.tableName}" 已复制到剪贴板`);
+      
+      // 查找对应的节点并聚焦
+      const node = this.json.nodes.find(n => n.name === tableInfo.tableName);
+      if (node) {
+        // 确保节点可见
+        if (this.hiddenNodes.has(node.name)) {
+          this.toggleNodeVisibility({ tableName: node.name, isHidden: false });
+        }
+        
+        // 延迟聚焦以确保节点已渲染
+        setTimeout(() => {
+          this.focusOnNode(node);
+        }, 100);
+      }
+    },
+    
+    // 处理复制字段事件
+    copyFields(data) {
+      this.copyToClipboard(data.fieldNames, `已复制 ${data.tableName} 的所有字段名`);
     },
     // 高亮字段的上下游链路
     highlightFieldLineage(tableName, fieldName) {
       // 清除之前的高亮
-      this.highlightedFields = [];
-      
-      // 重置字段索引
       this.resetFieldIndex();
       
       // 找到所有相关的字段
       const relatedFields = this.findRelatedFields(tableName, fieldName);
+      
+      // 更新高亮字段列表
       this.highlightedFields = relatedFields;
       
       // 如果开启了仅显示关键路径，更新关键路径
@@ -1441,7 +1659,11 @@ export default {
       
       // 高亮相关的连接线
       this.$nextTick(() => {
-      this.highlightConnections(relatedFields);
+        this.highlightConnections(relatedFields);
+        
+        // 移除这里的selectField调用，防止循环调用
+        // const field = { tableName, fieldName };
+        // this.selectField(field);
       });
     },
     // 查找相关字段
@@ -1479,7 +1701,7 @@ export default {
     },
     // 高亮连接线
     highlightConnections(relatedFields) {
-      if (!this.jsplumbInstance || this.lineageLevel === 'table') return;
+      if (!this.jsplumbInstance || this.lineageLevel === 'table' || !relatedFields || relatedFields.length === 0) return;
       
       const allConnections = this.jsplumbInstance.getAllConnections();
       
@@ -1502,15 +1724,38 @@ export default {
           f.tableName === targetId && f.fieldName === targetField
         );
         
-        if (isSourceRelated || isTargetRelated) {
+        if (isSourceRelated && isTargetRelated) {
+          // 如果源和目标都是相关字段，高亮连接线
           conn.setPaintStyle(this.commConfig.HoverPaintStyle);
+          
+          // 确保连接线和端点在关键路径模式下可见
           if (this.showOnlyCriticalPath) {
             conn.setVisible(true);
-            this.jsplumbInstance.show(conn.sourceId, true);
-            this.jsplumbInstance.show(conn.targetId, true);
+            
+            // 确保源节点和目标节点在关键路径中
+            this.criticalPathNodes.add(sourceId);
+            this.criticalPathNodes.add(targetId);
+            
+            // 从隐藏节点集合中移除
+            if (this.hiddenNodes.has(sourceId)) {
+              this.hiddenNodes.delete(sourceId);
+            }
+            if (this.hiddenNodes.has(targetId)) {
+              this.hiddenNodes.delete(targetId);
+            }
+            
+            // 确保端点可见
+            const sourceElement = document.getElementById(conn.sourceId);
+            const targetElement = document.getElementById(conn.targetId);
+            
+            if (sourceElement) sourceElement.style.display = 'block';
+            if (targetElement) targetElement.style.display = 'block';
           }
         }
       });
+      
+      // 重绘所有连接
+      this.jsplumbInstance.repaintEverything();
     },
     // 复制到剪贴板
     copyToClipboard(text, message) {
@@ -1594,7 +1839,12 @@ export default {
         return;
       }
 
+      // 设置分析状态为true，触发加载遮罩显示
       this.isAnalyzing = true;
+      
+      // 确保加载遮罩在DOM更新后显示
+      await this.$nextTick();
+      
       try {
         const apiUrl = import.meta.env.VITE_API_URL || '/api/lineage';
         const response = await fetch(apiUrl, {
@@ -1619,7 +1869,15 @@ export default {
         console.error('Error analyzing SQL:', error);
         this.showToastMessage('分析过程中发生错误');
       } finally {
-        this.isAnalyzing = false;
+        // 即使在高性能模式下，也确保加载遮罩有平滑的淡出效果
+        if (this.performanceConfig.highPerformanceMode) {
+          // 在高性能模式下添加短暂延迟，确保加载遮罩可见
+          setTimeout(() => {
+            this.isAnalyzing = false;
+          }, 300);
+        } else {
+          this.isAnalyzing = false;
+        }
       }
     },
 
@@ -1676,16 +1934,38 @@ export default {
         });
       }
 
-      // 更新jsPlumb实例中节点的可拖动状态
+      // 更新jsPlumb实例中节点的可拖动状态和可见性
       this.$nextTick(() => {
+        // 首先设置所有节点的可见性
         this.json.nodes.forEach(node => {
-          if (this.criticalPathNodes.has(node.name)) {
-            this.jsplumbInstance.setDraggable(node.name, true);
-          } else {
-            this.jsplumbInstance.setDraggable(node.name, false);
+          const isInCriticalPath = this.criticalPathNodes.has(node.name);
+          
+          // 设置节点可拖动状态
+          this.jsplumbInstance.setDraggable(node.name, isInCriticalPath);
+          
+          // 设置节点可见性
+          if (isInCriticalPath) {
+            // 如果节点在关键路径中，确保它是可见的
+            if (this.hiddenNodes.has(node.name)) {
+              this.hiddenNodes.delete(node.name);
+            }
+          } else if (this.showOnlyCriticalPath) {
+            // 如果节点不在关键路径中且启用了仅显示关键路径，隐藏节点
+            this.hiddenNodes.add(node.name);
           }
-          // 应用节点可见性，这会自动处理相关连接线的可见性
-          this.getNodeVisibility(node);
+        });
+        
+        // 更新连接线可见性
+        const allConnections = this.jsplumbInstance.getAllConnections();
+        allConnections.forEach(conn => {
+          const sourceId = conn.sourceId.split(this.minus)[0];
+          const targetId = conn.targetId.split(this.minus)[0];
+          
+          const isSourceInPath = this.criticalPathNodes.has(sourceId);
+          const isTargetInPath = this.criticalPathNodes.has(targetId);
+          
+          // 只有当源节点和目标节点都在关键路径中时，连接线才可见
+          conn.setVisible(isSourceInPath && isTargetInPath);
         });
 
         // 根据模式选择合适的高亮方式
@@ -1694,36 +1974,47 @@ export default {
         } else {
           this.highlightConnections(this.highlightedFields);
         }
+        
+        // 重绘所有连接
+        this.jsplumbInstance.repaintEverything();
       });
     },
     // 处理关键路径显示切换
     handleCriticalPathToggle() {
       if (this.showOnlyCriticalPath) {
+        // 开启关键路径模式
         if (this.lineageLevel === 'table' && this.highlightedTables.length > 0) {
           this.updateCriticalPath();
+          this.resetTableIndex(); // 重置表索引
         } else if (this.lineageLevel === 'column' && this.highlightedFields.length > 0) {
           this.updateCriticalPath();
+          this.resetFieldIndex(); // 重置字段索引
         }
       } else {
+        // 关闭关键路径模式
         this.criticalPathNodes.clear();
-        // 恢复所有节点的可拖动状态和连接线的显示
+        
+        // 恢复所有节点的可拖动状态
         this.json.nodes.forEach(node => {
           this.jsplumbInstance.setDraggable(node.name, true);
         });
-        // 恢复所有连接线的显示
+        
+        // 清除隐藏节点集合（显示所有节点）
+        this.hiddenNodes.clear();
+        
+        // 恢复所有连接线的显示和样式
         const allConnections = this.jsplumbInstance.getAllConnections();
         allConnections.forEach(conn => {
           conn.setVisible(true);
           conn.setPaintStyle(this.commConfig.PaintStyle);
         });
+        
+        // 重绘所有连接
+        this.jsplumbInstance.repaintEverything();
       }
 
-      // 重新应用节点可见性
+      // 重新应用高亮
       this.$nextTick(() => {
-        this.json.nodes.forEach(node => {
-          this.getNodeVisibility(node);
-        });
-        
         // 根据模式重新应用高亮
         if (this.lineageLevel === 'table' && this.highlightedTables.length > 0) {
           this.highlightTableConnections(this.highlightedTables);
@@ -1821,8 +2112,104 @@ export default {
       this.currentFieldIndex = -1;
     },
 
+    // 重置表索引
+    resetTableIndex() {
+      this.currentTableIndex = -1;
+    },
+
+    // 聚焦到下一个表 - 优化版本
+    async focusNextTable() {
+      if (!this.highlightedTables.length) return;
+
+      // 添加按钮点击动画效果
+      const cameraButton = this.getCachedQuerySelector('.camera-button');
+      if (cameraButton) {
+        cameraButton.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          cameraButton.style.transform = 'scale(1)';
+        }, 150);
+      }
+
+      // 更新当前表索引
+      this.currentTableIndex = (this.currentTableIndex + 1) % this.highlightedTables.length;
+      const tableName = this.highlightedTables[this.currentTableIndex];
+      
+      // 触发计数器动画
+      const counterElement = this.getCachedQuerySelector('.field-counter');
+      if (counterElement) {
+        counterElement.classList.add('counter-update');
+        setTimeout(() => {
+          counterElement.classList.remove('counter-update');
+        }, 500);
+      }
+      
+      // 找到对应的节点
+      const node = this.json.nodes.find(n => n.name === tableName);
+      if (!node) return;
+
+      // 获取panzoom实例
+      const pan = this.jsplumbInstance.pan;
+      if (!pan) return;
+
+      // 1. 设置固定缩放比例
+      const targetZoom = 0.9;
+      const currentTransform = pan.getTransform();
+      const currentZoom = currentTransform.scale;
+      
+      // 如果当前缩放不是目标缩放，先设置缩放
+      if (Math.abs(currentZoom - targetZoom) > 0.01) {
+        const zoomRatio = targetZoom / currentZoom;
+        pan.zoomTo(0, 0, zoomRatio);
+        // 等待缩放动作完成
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // 2. 获取容器和节点元素
+      const mainContainer = this.jsplumbInstance.getContainer();
+      const nodeElement = this.getCachedElement(tableName);
+      
+      if (!nodeElement) return;
+
+      // 3. 获取节点表头元素
+      const headerElement = nodeElement.querySelector('.table-node-header');
+      if (!headerElement) return;
+
+      const containerRect = mainContainer.getBoundingClientRect();
+      const headerRect = headerElement.getBoundingClientRect();
+
+      // 4. 计算目标位置（以表头为中心）
+      const containerCenterX = containerRect.width / 2;
+      const containerCenterY = containerRect.height / 3; // 将表头定位在视图上方1/3处
+      
+      const headerCenterX = headerRect.left + headerRect.width / 2 - containerRect.left;
+      const headerCenterY = headerRect.top + headerRect.height / 2 - containerRect.top;
+      
+      const targetX = containerCenterX - headerCenterX;
+      const targetY = containerCenterY - headerCenterY;
+
+      // 5. 添加动画效果
+      const tableFlow = this.getCachedQuerySelector('.table-flow');
+      if (tableFlow) {
+        tableFlow.classList.add('camera-animate');
+      }
+
+      // 6. 移动到目标位置
+      pan.moveTo(targetX, targetY);
+
+      // 7. 添加节点高亮动画
+      this.addOptimizedAnimationClass(nodeElement, 'node-focus-animation', 1000);
+      
+      // 8. 清理动画类
+      setTimeout(() => {
+        if (tableFlow) {
+          tableFlow.classList.remove('camera-animate');
+        }
+        this.jsplumbInstance.repaintEverything();
+      }, 500);
+    },
+
     // 处理节点隐藏/显示
-    handleNodeVisibility(data) {
+    toggleNodeVisibility(data) {
       const { tableName, isHidden } = data;
       if (isHidden) {
         // 存储节点的连接信息，以便后续恢复
@@ -2069,81 +2456,153 @@ export default {
       return `${before}<span class="highlight">${match}</span>${after}`;
     },
 
-    // 改进的聚焦到节点方法 - 优化版本
+    // 改进的聚焦到节点方法 - 持久高亮版本
     async focusOnNode(node) {
       if (!this.jsplumbInstance || !node) return;
-
-      // 更新聚焦状态
-      this.focusedNode = node.name;
       
-      // 新增：表级模式下高亮表及其上下游链路
-      if (this.lineageLevel === 'table') {
-        this.handleTableHighlight({ tableName: node.name });
-      }
-      // 获取panzoom实例
-      const pan = this.jsplumbInstance.pan;
-      if (!pan) return;
+      console.log("聚焦节点:", node.name);
 
-      // 1. 设置固定缩放比例
-      const targetZoom = 0.8;
-      const currentTransform = pan.getTransform();
-      const currentZoom = currentTransform.scale;
-      
-      // 如果当前缩放不是目标缩放，先设置缩放
-      if (Math.abs(currentZoom - targetZoom) > 0.01) {
-        const zoomRatio = targetZoom / currentZoom;
-        pan.zoomTo(0, 0, zoomRatio);
-        // 等待缩放动作完成
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // 2. 获取容器和节点元素
-      const mainContainer = this.jsplumbInstance.getContainer();
-      const nodeElement = this.getCachedElement(node.name);
-      
-      if (!nodeElement) return;
-
-      // 3. 获取节点表头元素
-      const headerElement = nodeElement.querySelector('.table-node-header');
-      if (!headerElement) return;
-
-      const containerRect = mainContainer.getBoundingClientRect();
-      const headerRect = headerElement.getBoundingClientRect();
-
-      // 4. 计算目标位置（以表头为中心）
-      const containerCenterX = containerRect.width / 2;
-      const containerCenterY = containerRect.height / 3; // 将表头定位在视图上方1/3处
-      
-      const headerCenterX = headerRect.left + headerRect.width / 2 - containerRect.left;
-      const headerCenterY = headerRect.top + headerRect.height / 2 - containerRect.top;
-      
-      const targetX = containerCenterX - headerCenterX;
-      const targetY = containerCenterY - headerCenterY;
-
-      // 5. 添加动画效果
-      const tableFlow = this.getCachedQuerySelector('.table-flow');
-      if (tableFlow) {
-        tableFlow.classList.add('camera-animate');
-      }
-
-      // 6. 移动到目标位置
-      pan.moveTo(targetX, targetY);
-
-      // 7. 添加节点高亮动画
-      this.addOptimizedAnimationClass(nodeElement, 'node-focus-animation', 1000);
-      
-      // 8. 清理动画类
-      setTimeout(() => {
-        if (tableFlow) {
-          tableFlow.classList.remove('camera-animate');
-        }
-        this.jsplumbInstance.repaintEverything();
+      try {
+        // 更新聚焦状态 - 不再自动清除
+        this.focusedNode = node.name;
         
-        // 3秒后清除聚焦状态
+        // 新增：表级模式下高亮表及其上下游链路
+        if (this.lineageLevel === 'table') {
+          this.handleTableHighlight({ tableName: node.name });
+          
+          // 等待高亮状态更新
+          await this.$nextTick();
+        }
+        
+        // 确保节点可见（如果被隐藏）
+        if (this.hiddenNodes.has(node.name)) {
+          this.toggleNodeVisibility({ tableName: node.name, isHidden: false });
+          // 等待节点显示
+          await this.$nextTick();
+        }
+        
+        // 确保节点已渲染
+        await this.$nextTick();
+        
+        // 获取panzoom实例
+        const pan = this.jsplumbInstance.pan;
+        if (!pan) {
+          console.warn("无法获取panzoom实例");
+          return;
+        }
+
+        // 1. 设置固定缩放比例 - 增加缩放比例使节点更大
+        const targetZoom = 0.9;
+        const currentTransform = pan.getTransform();
+        const currentZoom = currentTransform.scale;
+        
+        // 如果当前缩放不是目标缩放，先设置缩放
+        if (Math.abs(currentZoom - targetZoom) > 0.01) {
+          const zoomRatio = targetZoom / currentZoom;
+          pan.zoomTo(0, 0, zoomRatio);
+          // 等待缩放动作完成
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        // 2. 获取容器和节点元素 - 确保在DOM中能找到
+        const mainContainer = this.jsplumbInstance.getContainer();
+        
+        // 等待一小段时间确保DOM更新完成
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // 查找节点元素 - 使用更可靠的选择器
+        const nodeElements = document.querySelectorAll('.table-node');
+        let nodeElement = null;
+        
+        // 遍历所有节点元素，查找匹配的节点
+        for (const element of nodeElements) {
+          if (element.id === node.name) {
+            nodeElement = element;
+            break;
+          }
+        }
+        
+        if (!nodeElement) {
+          console.warn("无法找到节点元素:", node.name);
+          console.log("当前DOM中的节点:", Array.from(nodeElements).map(el => el.id));
+          return;
+        }
+
+        // 3. 获取节点表头元素
+        const headerElement = nodeElement.querySelector('.table-node-header');
+        if (!headerElement) {
+          console.warn("无法找到节点表头元素");
+          return;
+        }
+
+        const containerRect = mainContainer.getBoundingClientRect();
+        const headerRect = headerElement.getBoundingClientRect();
+
+        // 4. 计算目标位置（以表头为中心）
+        const containerCenterX = containerRect.width / 2;
+        const containerCenterY = containerRect.height / 3; // 将表头定位在视图上方1/3处
+        
+        const headerCenterX = headerRect.left + headerRect.width / 2 - containerRect.left;
+        const headerCenterY = headerRect.top + headerRect.height / 2 - containerRect.top;
+        
+        const targetX = containerCenterX - headerCenterX;
+        const targetY = containerCenterY - headerCenterY;
+        
+        console.log("移动到位置:", targetX, targetY);
+
+        // 5. 添加动画效果 - 使用更平滑的动画
+        const tableFlow = document.querySelector('.table-flow');
+        if (tableFlow) {
+          tableFlow.classList.add('camera-animate');
+        }
+
+        // 6. 移动到目标位置
+        try {
+          pan.moveTo(targetX, targetY);
+        } catch (error) {
+          console.error("移动画布失败:", error);
+        }
+
+        // 7. 添加节点高亮动画 - 初始动画效果
+        if (nodeElement) {
+          nodeElement.classList.add('node-focus-animation');
+          setTimeout(() => {
+            nodeElement.classList.remove('node-focus-animation');
+          }, 1500);
+        }
+        
+        // 在画布中找到对应的列表项并添加动画效果
+        const listItem = document.querySelector(`.node-list-item[data-node="${node.name}"]`);
+        if (listItem) {
+          // 确保列表项可见
+          listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // 添加持久高亮效果
+          listItem.classList.add('node-focused');
+          listItem.classList.add('node-persistent-focus');
+          
+          // 添加初始脉冲动画效果
+          listItem.style.animation = 'pulse 1.5s cubic-bezier(0.22, 1, 0.36, 1)';
+          
+          // 清除初始动画后保持高亮状态
+          setTimeout(() => {
+            listItem.style.animation = '';
+          }, 1500);
+        }
+        
+        // 8. 清理动画类但保持高亮状态
         setTimeout(() => {
-          this.focusedNode = null;
-        }, 3000);
-      }, 500);
+          if (tableFlow) {
+            tableFlow.classList.remove('camera-animate');
+          }
+          this.jsplumbInstance.repaintEverything();
+          
+          // 不再自动清除聚焦状态
+          // this.focusedNode = null;
+        }, 500);
+      } catch (error) {
+        console.error("聚焦节点时出错:", error);
+      }
     },
 
     // 清理画布
@@ -2580,13 +3039,21 @@ export default {
       this.updateScheduled = false;
     },
     
-    // 启用硬件加速
+    // 启用硬件加速 - 增强版
     enableHardwareAcceleration(element) {
       if (!element || !this.renderOptimizations.useTransform3d) return;
       
       // 使用 transform3d 启用硬件加速
       element.style.transform = 'translate3d(0, 0, 0)';
       element.style.willChange = 'transform';
+      
+      // 添加更多硬件加速优化
+      element.style.backfaceVisibility = 'hidden';
+      element.style.perspective = '1000px';
+      element.style.transformStyle = 'preserve-3d';
+      
+      // 减少重排和重绘
+      element.style.contain = 'paint layout';
       
       // 缓存图层信息
       this.layerCache.set(element, {
@@ -2687,39 +3154,156 @@ export default {
     optimizedJsPlumbRepaint() {
       if (!this.jsplumbInstance) return;
       
+      // 取消之前的渲染请求
+      if (this.repaintRequestId) {
+        cancelAnimationFrame(this.repaintRequestId);
+      }
+      
       // 使用 requestAnimationFrame 确保在下一帧执行
-      requestAnimationFrame(() => {
+      this.repaintRequestId = requestAnimationFrame(() => {
         // 挂起绘制操作
         this.jsplumbInstance.setSuspendDrawing(true);
         
-        // 执行重绘
-        this.jsplumbInstance.repaintEverything();
+        // 优先处理可视区域内的连接
+        const visibleConnections = this.getVisibleConnections();
+        if (visibleConnections.length > 0) {
+          // 批量处理可见连接
+          this.batchProcessConnections(visibleConnections, conn => {
+            conn.repaint();
+          });
+        } else {
+          // 如果没有可见连接，执行全局重绘
+          this.jsplumbInstance.repaintEverything();
+        }
         
         // 恢复绘制操作
         this.jsplumbInstance.setSuspendDrawing(false, true);
+        
+        // 清除请求ID
+        this.repaintRequestId = null;
       });
     },
     
-    // 优化的连接线更新
+    // 获取可视区域内的连接
+    getVisibleConnections() {
+      if (!this.jsplumbInstance) return [];
+      
+      const allConnections = this.jsplumbInstance.getAllConnections();
+      const { top, bottom, left, right } = this.viewportBounds;
+      const padding = VIEWPORT_PADDING;
+      
+      return allConnections.filter(conn => {
+        // 检查连接是否在可视区域内
+        const sourceElement = document.getElementById(conn.sourceId);
+        const targetElement = document.getElementById(conn.targetId);
+        
+        if (!sourceElement || !targetElement) return false;
+        
+        const sourceBounds = sourceElement.getBoundingClientRect();
+        const targetBounds = targetElement.getBoundingClientRect();
+        
+        // 计算连接线的边界框
+        const connTop = Math.min(sourceBounds.top, targetBounds.top);
+        const connBottom = Math.max(sourceBounds.bottom, targetBounds.bottom);
+        const connLeft = Math.min(sourceBounds.left, targetBounds.left);
+        const connRight = Math.max(sourceBounds.right, targetBounds.right);
+        
+        return connBottom >= top - padding && 
+               connTop <= bottom + padding && 
+               connRight >= left - padding && 
+               connLeft <= right + padding;
+      });
+    },
+    
+    // 批量处理连接
+    batchProcessConnections(connections, processor, batchSize = 20) {
+      if (!connections || connections.length === 0) return;
+      
+      const totalConnections = connections.length;
+      let processedCount = 0;
+      
+      const processBatch = () => {
+        const end = Math.min(processedCount + batchSize, totalConnections);
+        
+        for (let i = processedCount; i < end; i++) {
+          processor(connections[i]);
+        }
+        
+        processedCount = end;
+        
+        if (processedCount < totalConnections) {
+          requestAnimationFrame(processBatch);
+        }
+      };
+      
+      processBatch();
+    },
+    
+    // 优化的连接线更新 - 高性能版本
     optimizedConnectionUpdate(connections, updateFn) {
       if (!connections || connections.length === 0) return;
       
-      // 分批处理连接线更新
-      const batchSize = 20;
+      // 挂起绘制操作
+      if (this.jsplumbInstance) {
+        this.jsplumbInstance.setSuspendDrawing(true);
+      }
       
-      for (let i = 0; i < connections.length; i += batchSize) {
-        const batch = connections.slice(i, i + batchSize);
+      // 优先处理可视区域内的连接
+      const visibleConnections = this.getVisibleConnections();
+      const nonVisibleConnections = connections.filter(conn => 
+        !visibleConnections.includes(conn)
+      );
+      
+      // 分批处理连接线更新 - 先处理可见连接，再处理不可见连接
+      const processBatch = (conns, batchSize, callback) => {
+        let index = 0;
         
-        requestAnimationFrame(() => {
+        const processNextBatch = () => {
+          if (index >= conns.length) {
+            if (callback) callback();
+            return;
+          }
+          
+          const end = Math.min(index + batchSize, conns.length);
+          const batch = conns.slice(index, end);
+          
           batch.forEach(conn => {
             try {
               updateFn(conn);
+              
+              // 对可见连接应用硬件加速
+              if (visibleConnections.includes(conn)) {
+                const connector = conn.getConnector();
+                if (connector && connector.canvas) {
+                  connector.canvas.style.willChange = 'transform';
+                  connector.canvas.style.transform = 'translateZ(0)';
+                }
+              }
             } catch (error) {
               console.warn('Connection update failed:', error);
             }
           });
+          
+          index = end;
+          
+          // 使用 requestAnimationFrame 处理下一批
+          requestAnimationFrame(() => {
+            processNextBatch();
+          });
+        };
+        
+        processNextBatch();
+      };
+      
+      // 先处理可见连接，再处理不可见连接
+      processBatch(visibleConnections, 20, () => {
+        processBatch(nonVisibleConnections, 50, () => {
+          // 所有连接处理完成后，恢复绘制
+          if (this.jsplumbInstance) {
+            this.jsplumbInstance.setSuspendDrawing(false, true);
+          }
         });
-      }
+      });
     },
     
     // 渲染性能调试
@@ -2942,6 +3526,9 @@ export default {
       this.highlightedTables = [];
       this.highlightedFields = [];
       
+      // 重置表索引
+      this.resetTableIndex();
+      
       // 添加新的高亮表
       this.highlightedTables.push(tableName);
       
@@ -2987,6 +3574,13 @@ export default {
         // 如果连接线的两端都在高亮表集合中，则高亮该连接线
         if (highlightedTables.includes(sourceId) && highlightedTables.includes(targetId)) {
           conn.setPaintStyle(this.commConfig.HoverPaintStyle);
+          
+          // 如果启用了仅显示关键路径，确保连接线可见
+          if (this.showOnlyCriticalPath) {
+            conn.setVisible(true);
+            this.jsplumbInstance.show(conn.sourceId, true);
+            this.jsplumbInstance.show(conn.targetId, true);
+          }
         }
       });
     },
@@ -3055,1467 +3649,217 @@ export default {
     isGroupCollapsed(type) {
       return !!this.groupCollapseState[type];
     },
+    // 检测设备性能
+    detectDevicePerformance() {
+      // 首先尝试从localStorage加载用户偏好
+      try {
+        const savedMode = localStorage.getItem('highPerformanceMode');
+        if (savedMode === 'true') {
+          this.performanceConfig.highPerformanceMode = true;
+          this.performanceConfig.enableAnimations = false;
+          this.performanceConfig.enableSmoothScroll = false;
+          this.performanceConfig.enableAlignmentLines = false;
+          this.applyHighPerformanceMode();
+          return; // 如果已经有用户偏好，直接使用它
+        }
+      } catch (e) {
+        console.warn('无法加载性能模式偏好:', e);
+      }
+      
+      // 简单性能检测
+      const start = performance.now();
+      let count = 0;
+      for (let i = 0; i < 1000000; i++) {
+        count += i;
+      }
+      const duration = performance.now() - start;
+      
+      // 如果性能测试时间较长，启用高性能模式
+      if (duration > 50) {
+        this.performanceConfig.highPerformanceMode = true;
+        this.performanceConfig.enableAnimations = false;
+        this.performanceConfig.enableSmoothScroll = false;
+        this.performanceConfig.enableAlignmentLines = false;
+        
+        // 应用高性能模式配置
+        this.applyHighPerformanceMode();
+        
+        // 通知用户
+        this.showToastMessage('已自动启用高性能模式以提升流畅度');
+      }
+      
+      // 检测是否为移动设备
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        // 移动设备上默认启用高性能模式
+        this.performanceConfig.highPerformanceMode = true;
+        this.performanceConfig.enableAnimations = false;
+        this.applyHighPerformanceMode();
+      }
+      
+      // 检测是否为低内存设备
+      if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+        // 低内存设备上启用高性能模式
+        this.performanceConfig.highPerformanceMode = true;
+        this.performanceConfig.enableAnimations = false;
+        this.applyHighPerformanceMode();
+      }
+      
+      // 检测是否为低端CPU
+      if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) {
+        // 低端CPU设备上启用高性能模式
+        this.performanceConfig.highPerformanceMode = true;
+        this.performanceConfig.enableAnimations = false;
+        this.applyHighPerformanceMode();
+      }
+    },
+    
+    // 应用高性能模式配置
+    applyHighPerformanceMode() {
+      // 减少缓存大小
+      this.maxCacheSize = 500;
+      this.maxObjectPoolSize = 50;
+      this.cacheExpiryTime = 15000;
+      
+      // 优化渲染配置
+      this.renderOptimizations.useCompositorOnlyAnimations = true;
+      this.renderOptimizations.batchDOMUpdates = true;
+      
+      // 禁用不必要的CSS优化
+      this.cssOptimizations.useContainment = false;
+      this.cssOptimizations.enableWillChange = true;
+      this.cssOptimizations.useFilterOptimization = false;
+      
+      // 更新节点拖动网格大小，使拖动更粗糙但更流畅
+      this.commGrid = [5, 5];
+      
+      // 减少DOM缓存
+      this.clearElementCache();
+      
+      // 强制执行一次内存清理
+      this.performMemoryCleanup();
+      
+      console.log('已启用高性能模式');
+    },
+    togglePerformanceMode() {
+      this.performanceConfig.highPerformanceMode = !this.performanceConfig.highPerformanceMode;
+      
+      if (this.performanceConfig.highPerformanceMode) {
+        // 启用高性能模式
+        this.performanceConfig.enableAnimations = false;
+        this.performanceConfig.enableSmoothScroll = false;
+        this.performanceConfig.enableAlignmentLines = false;
+        
+        // 应用高性能模式配置
+        this.applyHighPerformanceMode();
+        
+        // 通知用户
+        this.showToastMessage('已启用高性能模式，提升操作流畅度');
+      } else {
+        // 恢复标准模式
+        this.performanceConfig.enableAnimations = window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+        this.performanceConfig.enableSmoothScroll = true;
+        this.performanceConfig.enableAlignmentLines = true;
+        
+        // 恢复标准配置
+        this.maxCacheSize = 1000;
+        this.maxObjectPoolSize = 100;
+        this.cacheExpiryTime = 30000;
+        
+        // 恢复渲染配置
+        this.renderOptimizations.useCompositorOnlyAnimations = true;
+        this.renderOptimizations.batchDOMUpdates = true;
+        
+        // 恢复CSS优化
+        this.cssOptimizations.useContainment = true;
+        this.cssOptimizations.enableWillChange = true;
+        this.cssOptimizations.useFilterOptimization = true;
+        
+        // 恢复网格大小
+        this.commGrid = [2, 2];
+        
+        // 清理并重建缓存
+        this.clearElementCache();
+        
+        // 通知用户
+        this.showToastMessage('已切换到标准模式，视觉效果更佳');
+        
+        // 重绘连接线
+        this.optimizedJsPlumbRepaint();
+      }
+      
+      // 保存用户偏好到localStorage
+      try {
+        localStorage.setItem('highPerformanceMode', this.performanceConfig.highPerformanceMode ? 'true' : 'false');
+      } catch (e) {
+        console.warn('无法保存性能模式偏好:', e);
+      }
+    },
+    // 获取当前视口变换信息
+    getTransform() {
+      if (!this.jsplumbInstance || !this.jsplumbInstance.pan) {
+        return { x: 0, y: 0, scale: 1 };
+      }
+      
+      return this.jsplumbInstance.pan.getTransform();
+    },
+    
+    // 获取容器尺寸
+    getContainerSize() {
+      if (!this.$refs.flowWrap) {
+        return { width: 800, height: 600 };
+      }
+      
+      const container = this.$refs.flowWrap;
+      return {
+        width: container.clientWidth,
+        height: container.clientHeight
+      };
+    },
+    
+    // 处理小地图导航
+    handleMinimapNavigate({ x, y }) {
+      if (!this.jsplumbInstance || !this.jsplumbInstance.pan) return;
+      
+      // 添加动画效果
+      const tableFlow = document.querySelector('.table-flow');
+      if (tableFlow) {
+        tableFlow.classList.add('camera-animate');
+      }
+      
+      // 移动到指定位置（确保位置精确）
+      this.jsplumbInstance.pan.moveTo(x, y);
+      
+      // 重绘连接线并移除动画类
+      setTimeout(() => {
+        this.jsplumbInstance.repaintEverything();
+        if (tableFlow) {
+          tableFlow.classList.remove('camera-animate');
+        }
+        
+        // 手动触发MiniMap组件更新
+        this.$nextTick(() => {
+          // 创建一个自定义事件，通知MiniMap组件更新视口指示器
+          const event = new CustomEvent('minimap-update');
+          window.dispatchEvent(event);
+        });
+      }, 300);
+    },
+    
+    // 切换小地图显示状态
+    toggleMiniMap() {
+      this.showMiniMap = !this.showMiniMap;
+    },
+    
+    // 切换关键路径显示状态
+    toggleCriticalPath() {
+      this.showOnlyCriticalPath = !this.showOnlyCriticalPath;
+      
+      // 调用处理函数来更新视图
+      this.handleCriticalPathToggle();
+    }
   }
 };
 </script>
 
-<style lang="less" scoped>
-  .app-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
-
-  .sql-container {
-    position: fixed;
-    left: 50%;
-    bottom: 32px;
-    transform: translateX(-50%);
-    z-index: 10001;
-    width: 420px;
-    min-width: 320px;
-    max-width: 95vw;
-    background: #fff;
-    border-radius: 18px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.13);
-    padding: 0 0 12px 0;
-    transition: box-shadow 0.3s;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    border: 1.5px solid #e6e6e6;
-    
-    // 最小化按钮现代风格
-    .minimize-btn.modern {
-      position: absolute;
-      top: -38px;
-      right: 8px;
-      width: 38px;
-      height: 38px;
-      border: none;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #e6f0ff 0%, #f5faff 100%);
-      box-shadow: 0 2px 12px rgba(24,144,255,0.10), 0 1.5px 6px rgba(0,0,0,0.07);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 10002;
-      transition: background 0.22s, box-shadow 0.22s, transform 0.12s;
-      outline: none;
-      border: 1.5px solid #e6e6e6;
-      svg {
-        display: block;
-        margin: 0 auto;
-        transition: stroke 0.2s;
-      }
-      &:hover {
-        background: linear-gradient(135deg, #d0e7ff 0%, #e6f7ff 100%);
-        box-shadow: 0 4px 18px rgba(24,144,255,0.16), 0 2px 8px rgba(0,0,0,0.10);
-        svg path {
-          stroke: #096dd9;
-        }
-      }
-      &:active {
-        transform: scale(0.93);
-        background: linear-gradient(135deg, #b3d8ff 0%, #e6f7ff 100%);
-      }
-    }
-    
-    // SQL面板样式
-    .sql-panel {
-      width: 100%;
-      background: transparent;
-      border-radius: 0 0 18px 18px;
-      box-shadow: none;
-      padding: 0;
-      transition: all 0.3s;
-      
-      // 最小化状态样式
-      &--minimized {
-        padding: 0;
-        height: 0;
-        opacity: 0;
-        pointer-events: none;
-        background: transparent;
-        box-shadow: none;
-      }
-      
-      .sql-editor {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        background: #f8fafd;
-        border-radius: 0 0 18px 18px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        padding: 12px 14px 8px 14px;
-        // 紧凑模式
-        &.compact {
-          padding: 8px 10px 4px 10px;
-        }
-        .sql-textarea-wrapper {
-          position: relative;
-          width: 100%;
-          &.compact {
-            margin-bottom: 6px;
-          }
-          .sql-textarea {
-            width: 100%;
-            min-width: 0;
-            box-sizing: border-box;
-            height: 48px;
-            padding: 8px 32px 8px 8px;
-            border: 1.2px solid #e6e6e6;
-            border-radius: 6px;
-            font-size: 13px;
-            line-height: 1.5;
-            resize: vertical;
-            min-height: 36px;
-            max-height: 180px;
-            background: #fff;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            &.compact {
-              height: 36px;
-              min-height: 32px;
-              font-size: 13px;
-              padding: 6px 28px 6px 8px;
-            }
-          }
-          .clear-sql-btn {
-            position: absolute;
-            right: 6px;
-            top: 6px;
-            width: 20px;
-            height: 20px;
-            border: none;
-            background: none;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #999;
-            transition: all 0.2s;
-            font-size: 13px;
-            &:hover {
-              background-color: #f0f0f0;
-              color: #666;
-            }
-            &:active {
-              background-color: #e6e6e6;
-              transform: scale(0.95);
-            }
-            .clear-icon {
-              font-size: 13px;
-              line-height: 1;
-            }
-          }
-        }
-        .sql-actions {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 2px;
-          gap: 8px;
-          &.compact {
-            margin-top: 0;
-            gap: 4px;
-          }
-          .sql-options {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
-            background: #f3f6fa;
-            border-radius: 6px;
-            padding: 4px 8px;
-            &.compact {
-              padding: 2px 4px;
-              gap: 4px;
-            }
-            .lineage-level-selector {
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              margin-right: 4px;
-              &.compact {
-                margin-right: 2px;
-                gap: 2px;
-              }
-              .option-label {
-                font-size: 12px;
-                color: #333;
-                margin-right: 2px;
-              }
-              .radio-label {
-                display: flex;
-                align-items: center;
-                gap: 2px;
-                cursor: pointer;
-                user-select: none;
-                input[type="radio"] {
-                  margin: 0;
-                  width: 13px;
-                  height: 13px;
-                  cursor: pointer;
-                }
-                .radio-text {
-                  font-size: 12px;
-                  color: #333;
-                }
-                &:hover .radio-text {
-                  color: #1890ff;
-                }
-              }
-            }
-            .option-label {
-              display: flex;
-              align-items: center;
-              gap: 2px;
-              cursor: pointer;
-              user-select: none;
-              font-size: 12px;
-              input[type="checkbox"] {
-                margin: 0;
-                width: 13px;
-                height: 13px;
-                cursor: pointer;
-              }
-              .option-text {
-                font-size: 12px;
-                color: #333;
-              }
-              &:hover .option-text {
-                color: #1890ff;
-              }
-              &.compact {
-                gap: 1px;
-              }
-            }
-          }
-          .analyze-btn {
-            padding: 7px 18px;
-            font-size: 14px;
-            border-radius: 6px;
-            &.compact {
-              padding: 5px 12px;
-              font-size: 13px;
-              border-radius: 5px;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // 复制成功提示样式
-  .toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: rgba(0, 0, 0, 0.75);
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 14px;
-    z-index: 100001; // 确保在最顶层
-    opacity: 0;
-    transform: translateY(-20px);
-    transition: all 0.3s ease;
-    pointer-events: none; // 防止toast阻挡鼠标事件
-    
-    &--show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  // 搜索框样式
-  .search-container {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10000;
-    width: 300px;
-    
-    .search-box {
-      position: relative;
-      
-      .search-input {
-        width: 100%;
-        height: 36px;
-        padding: 0 32px 0 12px;
-        border: 1px solid #ddd;
-        border-radius: 18px;
-        font-size: 14px;
-        outline: none;
-        transition: all 0.3s;
-        
-        &:focus {
-          border-color: #1890ff;
-          box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
-        }
-      }
-      
-      .clear-search-btn {
-        position: absolute;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        color: #999;
-        cursor: pointer;
-        padding: 4px;
-        font-size: 12px;
-        
-        &:hover {
-          color: #666;
-        }
-      }
-      
-      .search-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        margin-top: 4px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        max-height: 300px;
-        overflow-y: auto;
-        
-        .dropdown-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 16px;
-          background-color: #f8f9fa;
-          border-bottom: 1px solid #eee;
-          font-size: 13px;
-          color: #666;
-        }
-        
-        .dropdown-item {
-          padding: 8px 12px;
-          cursor: pointer;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          
-          &:hover {
-            background: #f5f5f5;
-          }
-          
-          .table-name {
-            color: #666;
-            font-size: 12px;
-          }
-          
-          .field-name {
-            color: #333;
-            font-weight: 500;
-            font-size: 13px;
-          }
-        }
-      }
-    }
-  }
-
-  .flow-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    overflow: auto;
-    
-    .table-flow {
-      position: relative;
-      min-width: 100%;
-      min-height: 100%;
-    }
-  }
-
-  .advanced-search {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10000;
-    width: 400px;
-    
-    .search-panel {
-      .search-header {
-        .search-box {
-          position: relative;
-          width: 100%;
-          
-          .search-icon {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
-            font-size: 14px;
-            pointer-events: none;
-          }
-          
-          .search-input {
-            width: 100%;
-            height: 40px;
-            padding: 0 40px;
-            border: 2px solid #e1e4e8;
-            border-radius: 20px;
-            font-size: 14px;
-            color: #24292e;
-            background: white;
-            outline: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-            
-            &::placeholder {
-              color: #999;
-            }
-            
-            &:hover {
-              border-color: #ccd1d5;
-              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            }
-            
-            &:focus {
-              border-color: #1890ff;
-              box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.15);
-            }
-          }
-          
-          .clear-search-btn {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #999;
-            cursor: pointer;
-            padding: 4px;
-            font-size: 14px;
-            width: 24px;
-            height: 24px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-            
-            &:hover {
-              background-color: #f0f0f0;
-              color: #666;
-            }
-            
-            &:active {
-              background-color: #e6e6e6;
-            }
-          }
-        }
-      }
-    }
-    
-    .search-dropdown {
-      margin-top: 8px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      max-height: 400px;
-      overflow: hidden;
-      border: 1px solid #e1e4e8;
-      
-      .dropdown-header {
-        padding: 12px 16px;
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #e1e4e8;
-        font-size: 13px;
-        color: #666;
-        font-weight: 500;
-      }
-      
-      .dropdown-list {
-        max-height: 350px;
-        overflow-y: auto;
-        
-        &::-webkit-scrollbar {
-          width: 8px;
-        }
-        
-        &::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        
-        &::-webkit-scrollbar-thumb {
-          background: #ccc;
-          border-radius: 4px;
-          
-          &:hover {
-            background: #999;
-          }
-        }
-      }
-      
-      .dropdown-item {
-        padding: 12px 16px;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        transition: all 0.2s ease;
-        
-        &:last-child {
-          border-bottom: none;
-        }
-        
-        &:hover {
-          background-color: #f6f8fa;
-        }
-        
-        .item-header {
-          display: flex;
-          align-items: center;
-          margin-bottom: 4px;
-          
-          .table-type-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-          }
-          
-          .table-name {
-            color: #666;
-            font-size: 12px;
-          }
-        }
-        
-        .field-name {
-          color: #24292e;
-          font-size: 14px;
-          font-weight: 500;
-        }
-      }
-    }
-  }
-
-  // 表类型图例样式
-  .table-type-legend {
-    position: fixed;
-    right: 20px;
-    bottom: 60px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-    padding: 12px;
-    z-index: 1000;
-
-    .legend-title {
-      font-size: 11px;
-      color: #495057;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-
-    .legend-items {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-
-      .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-
-        .color-indicator {
-          width: 16px;
-          height: 16px;
-          border-radius: 4px;
-        }
-
-        .type-name {
-          font-size: 12px;
-          color: #495057;
-        }
-      }
-    }
-  }
-
-  // 镜头控制按钮样式
-  .camera-controls {
-    position: fixed;
-    top: 50%;
-    left: 65%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 10001;
-    background: white;
-    padding: 8px;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-
-    .camera-info {
-      .field-counter {
-        font-size: 14px;
-        color: #666;
-        margin-right: 8px;
-        transition: all 0.3s ease;
-        display: inline-block;
-        
-        &.counter-update {
-          animation: counterPulse 0.5s ease;
-        }
-      }
-    }
-
-    .camera-button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      border: none;
-      border-radius: 6px;
-      background: #f8f9fa;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      transform: scale(1);
-
-      &:hover {
-        background: #e9ecef;
-        transform: scale(1.05);
-      }
-
-      &:active {
-        transform: scale(0.95);
-      }
-
-      .camera-icon {
-        font-size: 18px;
-        transition: transform 0.2s ease;
-      }
-
-      &:hover .camera-icon {
-        transform: rotate(5deg);
-      }
-    }
-  }
-
-  // 批量操作按钮样式
-  .batch-actions {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10001;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    
-    .batch-action-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background-color: #fff;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
-      color: #333;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      justify-content: center;
-      
-      &:hover {
-        background-color: #f8f9fa;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-      
-      &:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-      
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        
-        &:hover {
-          transform: none;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-      }
-      
-      .show-icon {
-        font-size: 16px;
-      }
-    }
-    
-    .critical-path-toggle {
-      display: flex;
-      align-items: center;
-      padding: 8px 16px;
-      background-color: #fff;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      justify-content: center;
-      
-      &:hover {
-        background-color: #f8f9fa;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-      
-      &:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-      
-      input[type="checkbox"] {
-        margin-right: 8px;
-      }
-      
-      .toggle-label {
-        color: #333;
-        font-size: 14px;
-      }
-    }
-  }
-
-  // 节点列表面板样式
-  .node-list-panel {
-    position: fixed;
-    left: 24px;
-    top: 24px;
-    bottom: 24px;
-    height: auto;
-    min-width: 220px;
-    max-width: 520px;
-    background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
-    border-radius: 14px;
-    box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
-    border: 1.5px solid #e6eaf0;
-    z-index: 10001;
-    display: flex;
-    flex-direction: column;
-    font-size: 13px;
-    transition: box-shadow 0.2s, border 0.2s;
-    .panel-header {
-      padding: 18px 18px 10px 18px;
-      border-bottom: 1.5px solid #e6eaf0;
-      width: 100%;
-      box-sizing: border-box;
-      h3 {
-        margin: 0 0 10px 0;
-        font-size: 15px;
-        color: #1890ff;
-        font-weight: 600;
-        letter-spacing: 1px;
-      }
-      .panel-search {
-        position: relative;
-        width: 100%;
-        .node-search-input {
-          width: 100%;
-          height: 30px;
-          padding: 0 32px 0 12px;
-          border: 1.5px solid #e6eaf0;
-          border-radius: 7px;
-          font-size: 13px;
-          outline: none;
-          transition: border 0.2s, box-shadow 0.2s;
-          box-sizing: border-box;
-          background: #fafdff;
-          &:focus {
-            border-color: #1890ff;
-            box-shadow: 0 0 0 2px rgba(24,144,255,0.13);
-          }
-        }
-        .clear-search {
-          position: absolute;
-          right: 8px;
-          top: 50%;
-          transform: translateY(-50%);
-          cursor: pointer;
-          color: #b0b0b0;
-          font-size: 13px;
-          padding: 4px;
-          border-radius: 50%;
-          background: none;
-          transition: background 0.2s, color 0.2s;
-          &:hover {
-            color: #1890ff;
-            background: #e6f0ff;
-          }
-        }
-      }
-    }
-    .node-list {
-      flex: 1 1 0;
-      min-height: 0;
-      max-height: 100%;
-      overflow-y: auto;
-      overflow-x: auto;
-      padding: 10px 8px 8px 8px;
-      box-sizing: border-box;
-      font-size: 13px;
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1.5px solid #e6eaf0;
-      scrollbar-width: thin;
-      scrollbar-color: #e6eaf0 #fafdff;
-      &::-webkit-scrollbar {
-        width: 7px;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: #e6eaf0;
-        border-radius: 6px;
-      }
-      &::-webkit-scrollbar-track {
-        background: #fafdff;
-      }
-      .node-list-item {
-        display: flex;
-        min-width: 0;
-        width: auto;
-        white-space: nowrap;
-        align-items: center;
-        padding: 6px 10px;
-        margin-bottom: 3px;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-        box-sizing: border-box;
-        font-size: 13px;
-        font-weight: 500;
-        &:hover {
-          background: #e6f0ff;
-          color: #1890ff;
-        }
-        &.node-hidden {
-          opacity: 0.5;
-        }
-        &.node-focused {
-          background: #e6f7ff;
-          border: 1.5px solid #91d5ff;
-          color: #1890ff;
-        }
-        &.search-highlight {
-          background: #fff7e6;
-          color: #d48806;
-          &:hover {
-            background: #fff1d6;
-          }
-        }
-        .node-type-indicator {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          margin-right: 10px;
-          flex-shrink: 0;
-        }
-        .node-name {
-          flex: none;
-          font-size: 13px;
-          color: #333;
-          white-space: nowrap;
-          overflow: visible;
-          text-overflow: unset;
-          .highlight {
-            background-color: #ffd591;
-            padding: 0 2px;
-            border-radius: 2px;
-          }
-        }
-        .node-fields-count {
-          padding: 2px 7px;
-          background: #f0f4fa;
-          border-radius: 10px;
-          font-size: 12px;
-          color: #666;
-          margin-left: 10px;
-          flex-shrink: 0;
-        }
-      }
-      .node-list-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 10px 4px 10px;
-        font-size: 12px;
-        color: #8c8c8c;
-        font-weight: 500;
-        letter-spacing: 1px;
-        border-bottom: 1px dashed #e6eaf0;
-        margin-bottom: 2px;
-        .header-name {
-          flex: 1 1 0;
-          text-align: left;
-        }
-        .header-count {
-          min-width: 56px;
-          text-align: right;
-        }
-      }
-    }
-    .resize-handle {
-      position: absolute;
-      top: 0;
-      right: -7px;
-      width: 14px;
-      height: 100%;
-      cursor: ew-resize;
-      border-radius: 8px;
-      background: none;
-      transition: background 0.2s;
-      &:hover {
-        background: rgba(24, 144, 255, 0.10);
-      }
-      &:active {
-        background: rgba(24, 144, 255, 0.18);
-      }
-    }
-  }
-
-  // 作者署名样式
-  .author-signature {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 8px 12px;
-    background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    font-size: 14px;
-    color: #666;
-    z-index: 1000;
-    
-    span {
-      font-weight: 500;
-    }
-    
-    &:hover {
-      background-color: rgba(255, 255, 255, 1);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-  }
-
-  .list-toggle {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-
-    button {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-
-      &.active {
-        background-color: #1890ff;
-        color: white;
-      }
-
-      &:hover {
-        background-color: #40a9ff;
-      }
-    }
-  }
-  
-  // 表类型筛选样式
-  .type-filter-section {
-    margin-top: 12px;
-    border-top: 1px solid #e6eaf0;
-    padding-top: 12px;
-    
-    .filter-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      
-      .filter-title {
-        font-size: 13px;
-        color: #1890ff;
-        font-weight: 500;
-      }
-      
-      .toggle-filter-btn {
-        background: none;
-        border: none;
-        color: #1890ff;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        transition: all 0.2s;
-        
-        &:hover {
-          background: #e6f0ff;
-        }
-      }
-    }
-    
-    .filter-content {
-      .type-checkboxes {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        margin-bottom: 8px;
-        
-        .type-checkbox {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          padding: 4px 8px;
-          border-radius: 6px;
-          transition: background 0.2s;
-          
-          &:hover {
-            background: #f0f8ff;
-          }
-          
-          input[type="checkbox"] {
-            margin: 0;
-            width: 14px;
-            height: 14px;
-            cursor: pointer;
-          }
-          
-          .type-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 1px solid #e6eaf0;
-          }
-          
-          .type-name {
-            font-size: 12px;
-            color: #333;
-          }
-        }
-      }
-      
-      .filter-actions {
-        display: flex;
-        gap: 6px;
-        
-        .filter-action-btn {
-          flex: 1;
-          padding: 6px 12px;
-          border: 1px solid #e6eaf0;
-          border-radius: 4px;
-          background: #fff;
-          color: #666;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
-          
-          &:hover {
-            background: #f0f8ff;
-            border-color: #1890ff;
-            color: #1890ff;
-          }
-        }
-      }
-    }
-  }
-  
-  // 分组显示开关样式
-  .group-toggle {
-    margin-top: 8px;
-    padding: 8px 0;
-    border-top: 1px solid #e6eaf0;
-    
-    .group-toggle-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      user-select: none;
-      
-      input[type="checkbox"] {
-        margin: 0;
-        width: 14px;
-        height: 14px;
-        cursor: pointer;
-      }
-      
-      .toggle-text {
-        font-size: 12px;
-        color: #666;
-      }
-    }
-  }
-  
-  // 分组显示样式
-  .group-section {
-    margin-bottom: 16px;
-    
-    .group-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      background: #f8fafd;
-      border-radius: 6px;
-      margin-bottom: 6px;
-      border-left: 3px solid #e6eaf0;
-      
-      .group-type-indicator {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        border: 1px solid #e6eaf0;
-      }
-      
-      .group-title {
-        font-size: 12px;
-        color: #1890ff;
-        font-weight: 500;
-      }
-      
-      .group-toggle-btn {
-        margin-left: auto;
-        background: none;
-        border: none;
-        color: #1890ff;
-        font-size: 14px;
-        cursor: pointer;
-        padding: 2px 6px;
-        border-radius: 4px;
-        transition: background 0.2s;
-        display: flex;
-        align-items: center;
-        &:hover {
-          background: #e6f0ff;
-        }
-      }
-    }
-  }
-}
-
-// 添加节点淡入淡出过渡效果
-.table-node {
-  transition: opacity 0.3s ease;
-}
-
-// jsPlumb 连接线样式
-.jtk-connector {
-  z-index: 4;
-  transition: all 0.3s ease;
-  
-  &.jtk-connection-hover {
-    z-index: 5;
-
-  path {
-      transition: all 0.3s ease;
-      stroke: #5c7cfa !important;
-      stroke-width: 3px !important;
-    }
-  }
-  
-  &.jtk-connection-highlighted {
-    z-index: 6;
-  
-  path {
-      transition: all 0.3s ease;
-      stroke: #ff5722 !important;
-      stroke-width: 3px !important;
-      stroke-dasharray: none !important;
-      animation: connection-pulse 2s infinite;
-    }
-  }
-}
-
-@keyframes connection-pulse {
-  0% {
-    stroke-width: 3px;
-    stroke-opacity: 1;
-  }
-  50% {
-    stroke-width: 4px;
-    stroke-opacity: 0.8;
-  }
-  100% {
-    stroke-width: 3px;
-    stroke-opacity: 1;
-  }
-}
-
-@keyframes fieldFocus {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 128, 20, 0.4);
-    background-color: #fff3e0;
-  }
-  25% {
-    transform: scale(1.08);
-    box-shadow: 0 0 0 8px rgba(239, 128, 20, 0.3);
-    background-color: #ffe0b2;
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 12px rgba(239, 128, 20, 0.2);
-    background-color: #ffcc80;
-  }
-  75% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 6px rgba(239, 128, 20, 0.1);
-    background-color: #ffe0b2;
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 128, 20, 0);
-    background-color: #fff3e0;
-  }
-}
-
-@keyframes counterPulse {
-  0% {
-    transform: scale(1);
-    color: #666;
-  }
-  50% {
-    transform: scale(1.2);
-    color: #ff5722;
-  }
-  100% {
-    transform: scale(1);
-    color: #666;
-  }
-}
-
-.table-flow.camera-animate {
-  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-// 节点聚焦动画
-@keyframes nodeFocus {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.4);
-  }
-  50% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 10px rgba(24, 144, 255, 0);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
-  }
-}
-
-.node-focus-animation {
-  animation: nodeFocus 1s ease;
-}
-
-// 添加用户选择限制，防止拖动时选中文本
-.user-select-none {
-  user-select: none;
-}
-
-/* 添加加载遮罩样式 */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-}
-
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
-}
-
-.loading-text {
-  font-size: 18px;
-  color: #333;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.lineage-level-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 16px;
-  
-  .option-label {
-    font-size: 14px;
-    color: #333;
-    margin-right: 8px;
-  }
-  
-  .radio-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    user-select: none;
-    
-    input[type="radio"] {
-      margin: 0;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-    }
-    
-    .radio-text {
-      font-size: 14px;
-      color: #333;
-    }
-    
-    &:hover .radio-text {
-      color: #1890ff;
-    }
-  }
-}
-
-/* 虚拟化状态提示样式 */
-.virtualization-status {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
-  border: 1.5px solid #91d5ff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
-  font-size: 13px;
-  color: #1890ff;
-  font-weight: 500;
-  z-index: 1000;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: linear-gradient(135deg, #d0e7ff 0%, #e6f7ff 100%);
-    box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
-  }
-}
-
-/* 作者署名样式 */
-.author-signature {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  padding: 8px 12px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-size: 14px;
-  color: #666;
-  z-index: 1000;
-  
-  span {
-    font-weight: 500;
-  }
-  
-  &:hover {
-    background-color: rgba(255, 255, 255, 1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-}
-
-.list-toggle {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-
-  button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-
-    &.active {
-      background-color: #1890ff;
-      color: white;
-    }
-
-    &:hover {
-      background-color: #40a9ff;
-    }
-  }
-}
-
-.table-type-legend {
-  position: fixed;
-  right: 28px;
-  bottom: 36px;
-  background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
-  border: 1.5px solid #e6eaf0;
-  padding: 16px 18px 14px 18px;
-  z-index: 1000;
-  min-width: 120px;
-  .legend-title {
-    font-size: 13px;
-    color: #1890ff;
-    margin-bottom: 10px;
-    font-weight: 600;
-    letter-spacing: 1px;
-  }
-  .legend-items {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      .color-indicator {
-        width: 18px;
-        height: 18px;
-        border-radius: 7px;
-        border: 1.5px solid #e6eaf0;
-      }
-      .type-name {
-        font-size: 13px;
-        color: #495057;
-        font-weight: 500;
-      }
-    }
-  }
-}
-
-.blurred {
-  filter: blur(3px);
-  pointer-events: none;
-  user-select: none;
-}
-
-</style>
+<style lang="scss" src="./Index.scss"></style>

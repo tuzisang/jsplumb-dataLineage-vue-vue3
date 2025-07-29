@@ -1,10 +1,12 @@
 <template>
   <div 
+    :id="node.name"
     class="table-node" 
     :style="[setCoordinate, setColor(node.type, 8620)]"
     :class="{ 
       'table-node--disabled': isDisabled,
-      'table-node--table-mode': isTableMode
+      'table-node--table-mode': isTableMode,
+      'table-node--focused': isFocused
     }"
     @mousedown.stop="handleMouseDown"
   >
@@ -109,22 +111,35 @@ export default {
     highlightedTables: {  // 新增：高亮的表名列表
       type: Array,
       default: () => []
+    },
+    focusedNode: {
+      type: String,
+      default: ''
+    },
+    minus: {
+      type: String,
+      default: '_'
     }
   },
   data() {
     return {
-      minus: '-',
+      // 移除了重复定义的minus属性
     }
   },
   computed: {
+    // 检查当前节点是否被聚焦
+    isFocused() {
+      return this.focusedNode === this.node.name;
+    },
+    // 检查表是否被高亮
+    isTableHighlighted() {
+      return this.highlightedTables.includes(this.node.name);
+    },
     setCoordinate() {
       return {
         top: this.node.top + "px",
         left: this.node.left + "px",
       };
-    },
-    isTableHighlighted() {  // 新增：判断表是否被高亮
-      return this.highlightedTables.includes(this.node.name);
     }
   },
   methods: {
@@ -149,6 +164,10 @@ export default {
     },
     // 判断字段是否被高亮
     isFieldHighlighted(tableName, fieldName) {
+      if (!this.highlightedFields || !Array.isArray(this.highlightedFields)) {
+        return false;
+      }
+      
       return this.highlightedFields.some(field => 
         field.tableName === tableName && field.fieldName === fieldName
       );
@@ -169,15 +188,13 @@ export default {
         return;
       }
       
-      // 复制表名到剪贴板
+      // 复制表名到剪贴板并触发表名点击事件
       this.copyToClipboard(this.node.name);
       
-      if (this.isTableMode) {
-        // 在表级模式下，触发表高亮事件
-        this.$emit('table-highlight', {
-          tableName: this.node.name
-        });
-      }
+      // 无论是否为表级模式，都触发表名点击事件
+      this.$emit('table-name-click', {
+        tableName: this.node.name
+      });
     },
     // 新增：复制到剪贴板的方法
     copyToClipboard(text) {
@@ -235,15 +252,11 @@ export default {
         return;
       }
       const fieldNames = this.node.fields.map(field => field.name).join('\n');
-      navigator.clipboard.writeText(fieldNames).then(() => {
-        this.$emit('copy-success', {
-          message: `已复制 ${this.node.name} 的所有字段名`
-        });
-      }).catch(err => {
-        console.error('复制失败:', err);
-        this.$emit('copy-error', {
-          message: '复制失败，请重试'
-        });
+      
+      // 触发复制字段事件
+      this.$emit('copy-fields', {
+        tableName: this.node.name,
+        fieldNames: fieldNames
       });
     },
     // Get reference count for a source field (how many target fields reference it)

@@ -67,12 +67,17 @@ const comm = {
         const mainContainer = this.jsplumbInstance.getContainer();
         const mainContainerWrap = mainContainer.parentNode;
         const pan = panzoom(mainContainer, {
-            smoothScroll: true,
+            smoothScroll: false, // 禁用平滑滚动以提高性能
             bounds: false,
             // autocenter: true,
             zoomDoubleClickSpeed: 1,
             minZoom: 0.1,
             maxZoom: 3,
+            zoomSpeed: 0.2, // 增加缩放速度
+            panSpeed: 1.2, // 增加平移速度
+            animate: true, // 启用动画以提高用户体验
+            duration: 150, // 设置较短的动画时间
+            easing: 'ease-out', // 使用平滑的缓动函数
             //设置滚动缩放的组合键，默认不需要组合键
             beforeWheel: (e) => {
                 // 允许滚轮缩放，不需要组合键
@@ -85,6 +90,7 @@ const comm = {
         });
         this.jsplumbInstance.mainContainerWrap = mainContainerWrap;
         this.jsplumbInstance.pan = pan;
+        
         // 缩放时设置jsPlumb的缩放比率
         pan.on("zoom", (e: any) => {
             const {x, y, scale} = e.getTransform();
@@ -95,13 +101,52 @@ const comm = {
             this.auxiliaryLinePos.offsetX = -(x / scale)
             this.auxiliaryLinePos.offsetY = -(y / scale)
         });
+        
+        // 拖动开始时暂停连接线重绘
+        pan.on("panstart", () => {
+            if (this.jsplumbInstance) {
+                this.jsplumbInstance.setSuspendDrawing(true);
+                
+                // 优化拖动性能
+                if (mainContainer) {
+                    // 启用硬件加速
+                    mainContainer.style.willChange = 'transform';
+                    mainContainer.style.transform = 'translate3d(0, 0, 0)';
+                    
+                    // 应用其他性能优化
+                    if (this.renderOptimizations && this.renderOptimizations.enableLayerOptimization) {
+                        this.optimizeLayer(mainContainer, 'transform');
+                    }
+                }
+            }
+        });
+        
         pan.on("panend", (e: any) => {
             const {x, y, scale} = e.getTransform();
             this.auxiliaryLinePos.width = (1 / scale) * 100 + '%'
             this.auxiliaryLinePos.height = (1 / scale) * 100 + '%'
             this.auxiliaryLinePos.offsetX = -(x / scale)
             this.auxiliaryLinePos.offsetY = -(y / scale)
+            
+            // 拖动结束后恢复连接线重绘
+            if (this.jsplumbInstance) {
+                // 清理拖动时的优化
+                if (mainContainer) {
+                    mainContainer.style.willChange = 'auto';
+                    
+                    // 清理其他优化
+                    if (this.cleanupLayerOptimization) {
+                        this.cleanupLayerOptimization(mainContainer);
+                    }
+                }
+                
+                // 使用 requestAnimationFrame 延迟恢复绘制，提高流畅度
+                requestAnimationFrame(() => {
+                    this.jsplumbInstance.setSuspendDrawing(false, true);
+                });
+            }
         })
+        
         // 平移时设置鼠标样式 - 优化版本
         mainContainerWrap.style.cursor = "move";
         
@@ -119,9 +164,9 @@ const comm = {
         };
         
         // 添加事件监听器
-        mainContainerWrap.addEventListener("mousedown", wrapMousedown);
-        mainContainerWrap.addEventListener("mouseout", wrapMouseout);
-        mainContainerWrap.addEventListener("mouseup", wrapMouseup);
+        mainContainerWrap.addEventListener("mousedown", wrapMousedown, { passive: true });
+        mainContainerWrap.addEventListener("mouseout", wrapMouseout, { passive: true });
+        mainContainerWrap.addEventListener("mouseup", wrapMouseup, { passive: true });
         
         // 存储事件处理器引用，以便后续清理
         this.panzoomEventHandlers = {
