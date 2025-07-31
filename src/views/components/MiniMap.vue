@@ -2,8 +2,8 @@
   <div 
     class="minimap-container"
     :style="{
-      width: width + 'px',
-      height: height + 'px'
+      width: actualWidth + 'px',
+      height: actualHeight + 'px'
     }"
   >
     <!-- 调整大小手柄 -->
@@ -32,7 +32,7 @@
       ></div>
       
       <!-- 简化的连线 -->
-      <svg class="minimap-connections" :width="width" :height="height">
+      <svg class="minimap-connections" :width="actualWidth" :height="actualHeight">
         <line
           v-for="(edge, index) in edges"
           :key="'edge-' + index"
@@ -124,6 +124,9 @@ export default {
   },
   data() {
     return {
+      // 小地图实际宽度和高度（使用本地变量避免直接修改props）
+      actualWidth: this.width,
+      actualHeight: this.height,
       // 小地图缩放比例
       scale: 0.05,
       // 节点位置偏移量
@@ -204,6 +207,27 @@ export default {
     }
   },
   watch: {
+    // 监听props变化，同步更新实际尺寸
+    width: {
+      handler(newWidth) {
+        this.actualWidth = newWidth;
+        this.$nextTick(() => {
+          this.calculateScale();
+          this.updateViewportIndicator(true);
+        });
+      },
+      immediate: true
+    },
+    height: {
+      handler(newHeight) {
+        this.actualHeight = newHeight;
+        this.$nextTick(() => {
+          this.calculateScale();
+          this.updateViewportIndicator(true);
+        });
+      },
+      immediate: true
+    },
     // 监听transform变化，更新视口指示器位置
     transform: {
       handler() {
@@ -223,6 +247,8 @@ export default {
         if (!oldNodes || oldNodes.length === 0 || newNodes.length !== oldNodes.length) {
           this.calculateScale();
           this.$nextTick(() => {
+            // 定位到第一个来源表
+            this.positionFirstOriginNode();
             this.updateViewportIndicator(true);
           });
         } else {
@@ -266,14 +292,14 @@ export default {
       if (savedWidth && !isNaN(parseInt(savedWidth))) {
         const width = parseInt(savedWidth);
         if (width >= 150 && width <= 400) {
-          this.width = width;
+          this.actualWidth = width;
         }
       }
       
       if (savedHeight && !isNaN(parseInt(savedHeight))) {
         const height = parseInt(savedHeight);
         if (height >= 100 && height <= 300) {
-          this.height = height;
+          this.actualHeight = height;
         }
       }
     } catch (e) {
@@ -357,8 +383,8 @@ export default {
       const canvasHeight = maxY - minY;
       
       // 根据画布尺寸和小地图尺寸计算缩放比例
-      const scaleX = (this.width - 20) / canvasWidth; // 减去一些边距
-      const scaleY = (this.height - 20) / canvasHeight;
+      const scaleX = (this.actualWidth - 20) / canvasWidth; // 减去一些边距
+      const scaleY = (this.actualHeight - 20) / canvasHeight;
       
       // 取较小值确保完全显示，并进一步缩小以确保边缘节点可见
       const calculatedScale = Math.min(scaleX, scaleY) * 0.85;
@@ -382,8 +408,31 @@ export default {
       const canvasHeight = maxY - minY;
       
       // 计算偏移量，使节点居中
-      this.offsetX = (this.width - canvasWidth * this.scale) / 2;
-      this.offsetY = (this.height - canvasHeight * this.scale) / 2;
+      this.offsetX = (this.actualWidth - canvasWidth * this.scale) / 2;
+      this.offsetY = (this.actualHeight - canvasHeight * this.scale) / 2;
+      
+      // 确保偏移量不会导致节点超出可视区域
+      this.offsetX = Math.max(10, this.offsetX);
+      this.offsetY = Math.max(10, this.offsetY);
+    },
+    
+    // 定位到第一个来源表，使其显示在小地图的偏左上角
+    positionFirstOriginNode() {
+      if (!this.nodes || this.nodes.length === 0) return;
+      
+      // 获取第一个来源表
+      const originNodes = this.nodes.filter(node => node.type === 'Origin');
+      if (originNodes.length === 0) return;
+      
+      const firstOriginNode = originNodes[0];
+      
+      // 计算第一个来源表在小地图中的理想位置（偏左上角）
+      const idealLeft = 30; // 距离左边缘30px
+      const idealTop = 30;  // 距离上边缘30px
+      
+      // 计算需要的偏移量
+      this.offsetX = idealLeft - firstOriginNode.left * this.scale;
+      this.offsetY = idealTop - firstOriginNode.top * this.scale;
       
       // 确保偏移量不会导致节点超出可视区域
       this.offsetX = Math.max(10, this.offsetX);
@@ -402,8 +451,8 @@ export default {
       
       // 计算视口在小地图中的位置和大小
       // 小地图中的视口尺寸 = 实际视口尺寸 * 小地图缩放比例
-      const viewportWidth = Math.min(viewportRealWidth * this.scale, this.width - 10);
-      const viewportHeight = Math.min(viewportRealHeight * this.scale, this.height - 10);
+      const viewportWidth = Math.min(viewportRealWidth * this.scale, this.actualWidth - 10);
+      const viewportHeight = Math.min(viewportRealHeight * this.scale, this.actualHeight - 10);
 
       // 计算视口左上角在小地图中的位置
       // 关键修复：需要考虑主画布的缩放比例
@@ -412,8 +461,8 @@ export default {
       let viewportTop = (-y / scale) * this.scale + this.offsetY;
 
       // 限制视口指示器在小地图内
-      const maxLeft = this.width - viewportWidth - 5;
-      const maxTop = this.height - viewportHeight - 5;
+      const maxLeft = this.actualWidth - viewportWidth - 5;
+      const maxTop = this.actualHeight - viewportHeight - 5;
       
       viewportLeft = Math.max(5, Math.min(maxLeft, viewportLeft));
       viewportTop = Math.max(5, Math.min(maxTop, viewportTop));
@@ -626,8 +675,8 @@ export default {
       this.isResizing = true;
       this.resizeStartX = event.clientX;
       this.resizeStartY = event.clientY;
-      this.resizeStartWidth = this.width;
-      this.resizeStartHeight = this.height;
+      this.resizeStartWidth = this.actualWidth;
+      this.resizeStartHeight = this.actualHeight;
       
       // 添加调整大小时的样式
       document.body.style.cursor = 'nw-resize';
