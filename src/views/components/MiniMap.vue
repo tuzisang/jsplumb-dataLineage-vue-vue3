@@ -6,6 +6,12 @@
       height: height + 'px'
     }"
   >
+    <!-- 调整大小手柄 -->
+    <div 
+      class="resize-handle"
+      @mousedown="handleResizeMouseDown"
+      title="拖拽调整大小"
+    ></div>
     <div 
       class="minimap-content" 
       ref="minimapContent"
@@ -157,7 +163,13 @@ export default {
       // 是否移动了鼠标，用于区分点击和拖动
       hasMoved: false,
       // 移动阈值
-      moveThreshold: 3
+      moveThreshold: 3,
+      // 调整大小状态
+      isResizing: false,
+      resizeStartX: 0,
+      resizeStartY: 0,
+      resizeStartWidth: 0,
+      resizeStartHeight: 0
     };
   },
   computed: {
@@ -246,6 +258,28 @@ export default {
     }
   },
   mounted() {
+    // 尝试加载用户保存的小地图尺寸
+    try {
+      const savedWidth = localStorage.getItem('minimap_width');
+      const savedHeight = localStorage.getItem('minimap_height');
+      
+      if (savedWidth && !isNaN(parseInt(savedWidth))) {
+        const width = parseInt(savedWidth);
+        if (width >= 150 && width <= 400) {
+          this.width = width;
+        }
+      }
+      
+      if (savedHeight && !isNaN(parseInt(savedHeight))) {
+        const height = parseInt(savedHeight);
+        if (height >= 100 && height <= 300) {
+          this.height = height;
+        }
+      }
+    } catch (e) {
+      console.warn('无法加载保存的小地图尺寸', e);
+    }
+    
     // 计算适当的缩放比例
     this.calculateScale();
     
@@ -480,10 +514,29 @@ export default {
     
     // 处理全局鼠标移动
     handleGlobalMouseMove(event) {
-      if (!this.dragState.isDragging) return;
+      if (!this.dragState.isDragging && !this.isResizing) return;
       
       // 标记已经移动
       this.hasMoved = true;
+      
+      if (this.isResizing) {
+        // 处理调整大小
+        const deltaX = event.clientX - this.resizeStartX;
+        const deltaY = event.clientY - this.resizeStartY;
+        
+        // 计算新的尺寸（在左上角调整，所以需要减去增量）
+        let newWidth = this.resizeStartWidth - deltaX;
+        let newHeight = this.resizeStartHeight - deltaY;
+        
+        // 限制尺寸范围
+        newWidth = Math.max(150, Math.min(400, newWidth));
+        newHeight = Math.max(100, Math.min(300, newHeight));
+        
+        // 发送调整大小事件
+        this.$emit('resize', { width: newWidth, height: newHeight });
+        
+        return;
+      }
       
       if (this.dragState.dragType === 'viewport') {
         // 处理视口指示器拖动
@@ -523,7 +576,7 @@ export default {
     
     // 处理全局鼠标松开
     handleGlobalMouseUp(event) {
-      if (!this.dragState.isDragging) return;
+      if (!this.dragState.isDragging && !this.isResizing) return;
       
       // 检查是否是点击操作（短时间内没有移动）
       const isClick = !this.hasMoved && 
@@ -532,6 +585,7 @@ export default {
       
       // 结束拖动状态
       this.dragState.isDragging = false;
+      this.isResizing = false;
       
       // 恢复默认光标
       document.body.style.cursor = '';
@@ -564,6 +618,23 @@ export default {
       
       // 发送导航事件，将视口中心移动到点击位置
       this.$emit('navigate', { x: newX, y: newY });
+    },
+    
+    // 处理调整大小鼠标按下事件
+    handleResizeMouseDown(event) {
+      // 开始调整大小
+      this.isResizing = true;
+      this.resizeStartX = event.clientX;
+      this.resizeStartY = event.clientY;
+      this.resizeStartWidth = this.width;
+      this.resizeStartHeight = this.height;
+      
+      // 添加调整大小时的样式
+      document.body.style.cursor = 'nw-resize';
+      
+      // 阻止事件冒泡和默认行为
+      event.stopPropagation();
+      event.preventDefault();
     },
     
     // 放大小地图
@@ -700,5 +771,53 @@ export default {
 
 .minimap-control-btn:active {
   transform: scale(0.95);
+}
+
+/* 调整大小手柄样式 */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  background-color: rgba(24, 144, 255, 0.8);
+  cursor: nw-resize;
+  z-index: 11;
+  border-radius: 4px 0 4px 0;
+  transition: background-color 0.2s;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.resize-handle:hover {
+  background-color: #1890ff;
+}
+
+.resize-handle:active {
+  background-color: #0c7dda;
+}
+
+/* 在手柄上添加对角线图标 */
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid white;
+  border-left: 2px solid white;
+  opacity: 0.9;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid white;
+  border-right: 2px solid white;
+  opacity: 0.9;
 }
 </style>

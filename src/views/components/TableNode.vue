@@ -318,28 +318,18 @@ export default {
 .table-node {
   position: absolute;
   cursor: move;
-  border: 2px solid #000;
+  border: 1px solid #000;
   align-items: center;
   z-index: 9995;
-  border-radius: 8px;
   background: #fff;
-  min-width: 200px;
+  min-width: 180px;
   background-color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
 
   &--table-mode {
-    border-radius: 12px;
-    
     .table-node-header {
-      border-radius: 12px;
-      
       &.table-highlighted {
         font-size: 15px;
         font-weight: bold;
-        transform: scale(1.02);
-        transition: all 0.3s ease;
       }
     }
     
@@ -349,17 +339,11 @@ export default {
   }
 
   .table-node-header {
-    padding: 12px 16px;
-    border-radius: 8px 8px 0 0;
+    padding: 8px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    
-    &:hover {
-      opacity: 0.9;
-    }
     
     .table-node-name {
       font-size: 14px;
@@ -396,7 +380,6 @@ export default {
 
   .table-node-fields {
     background-color: #fff;
-    border-radius: 0 0 4px 4px;
     overflow: visible;
     
     .empty-fields-notice {
@@ -466,7 +449,6 @@ export default {
         .field-ref-count {
           margin-left: 8px;
           padding: 2px 6px;
-          border-radius: 10px;
           font-size: 11px;
           font-weight: 500;
           min-width: 20px;
@@ -505,18 +487,5 @@ export default {
   }
 }
 
-@keyframes fieldFocus {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 128, 20, 0.4);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 10px rgba(239, 128, 20, 0);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 128, 20, 0);
-  }
-}
+
 </style>

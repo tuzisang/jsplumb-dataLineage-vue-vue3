@@ -14,14 +14,12 @@
       min-width: 320px;
       max-width: 95vw;
       background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.13);
-      padding: 0 0 12px 0;
-      transition: box-shadow 0.3s;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      padding: 0 0 8px 0;
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      border: 1.5px solid #e6e6e6;
       
       // 最小化按钮现代风格
       .minimize-btn.modern {
@@ -242,6 +240,27 @@
                 border-radius: 5px;
               }
             }
+            .sql-buttons {
+              display: flex;
+              gap: 8px;
+              align-items: center;
+            }
+            .upload-btn {
+                padding: 7px 18px;
+                font-size: 14px;
+                border-radius: 6px;
+                background: #f0f8ff;
+                border: 1px solid #1890ff;
+                color: #1890ff;
+                cursor: pointer;
+                display: inline-block;
+                
+                &.compact {
+                  padding: 5px 12px;
+                  font-size: 13px;
+                  border-radius: 5px;
+                }
+              }
           }
         }
       }
@@ -257,16 +276,7 @@
       padding: 12px 20px;
       border-radius: 8px;
       font-size: 14px;
-      z-index: 100001; // 确保在最顶层
-      opacity: 0;
-      transform: translateY(-20px);
-      transition: all 0.3s ease;
-      pointer-events: none; // 防止toast阻挡鼠标事件
-      
-      &--show {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      z-index: 100001;
     }
   
     // 搜索框样式
@@ -289,12 +299,6 @@
           border-radius: 18px;
           font-size: 14px;
           outline: none;
-          transition: all 0.3s;
-          
-          &:focus {
-            border-color: #1890ff;
-            box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
-          }
         }
         
         .clear-search-btn {
@@ -308,10 +312,6 @@
           cursor: pointer;
           padding: 4px;
           font-size: 12px;
-          
-          &:hover {
-            color: #666;
-          }
         }
         
         .search-dropdown {
@@ -322,7 +322,7 @@
           margin-top: 4px;
           background: white;
           border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          border: 1px solid #ddd;
           max-height: 300px;
           overflow-y: auto;
           
@@ -343,10 +343,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            
-            &:hover {
-              background: #f5f5f5;
-            }
             
             .table-name {
               color: #666;
@@ -657,52 +653,34 @@
       gap: 8px;
       
       .batch-action-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background-color: #fff;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        font-size: 14px;
-        color: #333;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        width: 100%;
-        justify-content: center;
-        
-        &:hover {
-          background-color: #f8f9fa;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-        &:active {
-          transform: translateY(0);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          background-color: #fff;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-size: 14px;
+          color: #333;
+          cursor: pointer;
+          width: 100%;
+          justify-content: center;
           
-          &:hover {
-            transform: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          
+          &.active {
+            background-color: #e6f7ff;
+            border-color: #1890ff;
+            color: #1890ff;
+          }
+          
+          .show-icon, .filter-icon, .map-icon, .show-all-icon {
+            font-size: 16px;
           }
         }
-        
-        &.active {
-          background-color: #e6f7ff;
-          border-color: #1890ff;
-          color: #1890ff;
-        }
-        
-        .show-icon, .filter-icon, .map-icon, .show-all-icon {
-          font-size: 16px;
-        }
-      }
       
       .critical-path-toggle {
         display: flex;
@@ -1415,6 +1393,8 @@
     font-size: 14px;
     color: #666;
     z-index: 1000;
+    min-width: 120px;
+    text-align: center;
     
     span {
       font-weight: 500;
@@ -1451,12 +1431,15 @@
   
   .table-type-legend {
     position: fixed;
-    right: 240px;
-    bottom: 36px;
+    right: 0;
+    bottom: 150px;
     background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
     border-radius: 12px;
     box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
     border: 1.5px solid #e6eaf0;
+    border-right: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
     padding: 16px 18px 14px 18px;
     z-index: 1000;
     min-width: 120px;
@@ -1466,6 +1449,7 @@
       margin-bottom: 10px;
       font-weight: 600;
       letter-spacing: 1px;
+      text-align: center;
     }
     .legend-items {
       display: flex;

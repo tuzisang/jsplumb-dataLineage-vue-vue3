@@ -4,7 +4,8 @@ const commConfig = {
     grid: [10, 10],
     Container: "flow",
     //四种样式：Bezier/Straight/Flowchart/StateMachine
-    Connector: ["Bezier", {curviness: 10}],
+    // 优化：使用直线连接减少计算复杂度
+    Connector: ["Straight", {stub: 0}],
     // Connector: ["Straight", {stub: [20, 50], gap: 0}],
     // Connector: ["Flowchart", { stub: [20, 10], gap: 10, cornerRadius: 5, alwaysRespectStubs: true }],
     // Connector: ["StateMachine"],
@@ -17,7 +18,7 @@ const commConfig = {
     },
     // 通常连线的样式
     PaintStyle: {
-        stroke: colorFields[2].color,
+        stroke: "#FFCC99", // 更浅的橙色
         strokeWidth: 2
     },
     //hover激活连线的样式

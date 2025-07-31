@@ -18,10 +18,10 @@ const comm = {
             uuids: [from, to]
         }, this.commConfig);
     },
-    //封装拖动，添加辅助对齐线功能
+    // 封装拖动，添加辅助对齐线功能
     draggableNode(nodeID) {
         this.jsplumbInstance.draggable(nodeID, {
-            grid: this.commGrid,
+            grid: [5, 5], // 增大网格，减少计算频率
             drag: (params) => {
                 this.alignForLine(nodeID, params.pos)
             },
@@ -73,11 +73,11 @@ const comm = {
             zoomDoubleClickSpeed: 1,
             minZoom: 0.1,
             maxZoom: 3,
-            zoomSpeed: 0.2, // 增加缩放速度
-            panSpeed: 1.2, // 增加平移速度
-            animate: true, // 启用动画以提高用户体验
-            duration: 150, // 设置较短的动画时间
-            easing: 'ease-out', // 使用平滑的缓动函数
+            zoomSpeed: 0.3, // 增加缩放速度，减少动画时间
+            panSpeed: 1.5, // 增加平移速度
+            animate: false, // 禁用动画以提高性能
+            duration: 0, // 禁用动画时间
+            easing: 'linear', // 使用线性缓动
             //设置滚动缩放的组合键，默认不需要组合键
             beforeWheel: (e) => {
                 // 允许滚轮缩放，不需要组合键

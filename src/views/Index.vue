@@ -64,13 +64,24 @@
               <span class="option-text">仅显示物理表</span>
             </label>
           </div>
-          <button 
-            class="analyze-btn compact"
-            @click="analyzeSql"
-            :disabled="!sqlQuery.trim() || isAnalyzing"
-          >
-            {{ isAnalyzing ? '分析中...' : '分析血缘关系' }}
-          </button>
+          <div class="sql-buttons">
+            <label class="upload-btn compact">
+              <input 
+                type="file" 
+                accept=".txt,.sql"
+                @change="handleFileUpload"
+                style="display: none;"
+              >
+              📁 上传SQL文件
+            </label>
+            <button 
+              class="analyze-btn compact"
+              @click="analyzeSql"
+              :disabled="!sqlQuery.trim() || isAnalyzing"
+            >
+              {{ isAnalyzing ? '分析中...' : '分析血缘关系' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -92,9 +103,10 @@
     :edges="json.edges"
     :transform="getTransform()"
     :container-size="getContainerSize()"
-    :width="180"
-    :height="120"
+    :width="miniMapWidth"
+    :height="miniMapHeight"
     @navigate="handleMinimapNavigate"
+    @resize="handleMiniMapResize"
   />
 
     <!-- 镜头定位按钮 -->
@@ -483,7 +495,7 @@ import colorFields from './config/tableTypeMappingColor'
 const VIEWPORT_PADDING = 500; // 可视区域外的缓冲区大小
 const BATCH_SIZE = 10; // 批量处理的节点数量
 const VIRTUALIZATION_ENABLED = false; // 启用虚拟化渲染
-const MAX_NODES_FOR_VIRTUALIZATION = 50; // 超过此数量启用虚拟化
+const MAX_NODES_FOR_VIRTUALIZATION = 30; // 降低阈值，更早启用虚拟化
 
 const jsplumb = jsplumbModule.jsPlumb
 export default {
@@ -629,7 +641,10 @@ export default {
         highPerformanceMode: true,
         // 是否显示性能统计
         showPerformanceStats: false
-      }
+      },
+      // 小地图尺寸配置
+      miniMapWidth: 180,
+      miniMapHeight: 120
     };
   },
   mounted() {
@@ -3851,12 +3866,94 @@ export default {
       this.showMiniMap = !this.showMiniMap;
     },
     
+    // 处理小地图大小调整
+    handleMiniMapResize({ width, height }) {
+      this.miniMapWidth = width;
+      this.miniMapHeight = height;
+      
+      // 保存小地图尺寸到localStorage
+      try {
+        localStorage.setItem('minimap_width', width);
+        localStorage.setItem('minimap_height', height);
+      } catch (e) {
+        console.warn('无法保存小地图尺寸设置:', e);
+      }
+      
+      // 动态调整作者信息和表类型说明的位置
+      this.$nextTick(() => {
+        const authorSignature = document.querySelector('.author-signature');
+        const tableTypeLegend = document.querySelector('.table-type-legend');
+        
+        if (authorSignature) {
+          authorSignature.style.right = (width + 30) + 'px';
+        }
+        
+        if (tableTypeLegend) {
+          // 小地图变大时，表类型说明往上挪，避免重叠
+          const baseBottom = 150; // 基础bottom值
+          const offset = Math.max(0, height - 120); // 小地图高度超过120时开始上移
+          tableTypeLegend.style.bottom = (baseBottom + offset + 20) + 'px';
+        }
+      });
+    },
+    
     // 切换关键路径显示状态
     toggleCriticalPath() {
       this.showOnlyCriticalPath = !this.showOnlyCriticalPath;
       
       // 调用处理函数来更新视图
       this.handleCriticalPathToggle();
+    },
+    
+    // 处理文件上传
+    handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      // 检查文件类型
+      const validExtensions = ['.txt', '.sql'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      if (!validExtensions.includes(fileExtension)) {
+        this.showToastMessage('请选择.txt或.sql格式的SQL文件');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          let content = e.target.result;
+          
+          // 移除BOM头（UTF-8 BOM: 0xEF 0xBB 0xBF）
+          if (content.charCodeAt(0) === 0xFEFF || 
+              (content.charCodeAt(0) === 0xEF && 
+               content.charCodeAt(1) === 0xBB && 
+               content.charCodeAt(2) === 0xBF)) {
+            content = content.slice(1);
+          }
+          
+          // 统一换行符为\n，处理不同操作系统的换行符差异
+          content = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          
+          // 去除前后空白字符
+          content = content.trim();
+          
+          this.sqlQuery = content;
+          this.showToastMessage(`文件 "${file.name}" 上传成功，共 ${content.length} 字符`);
+        } catch (error) {
+          this.showToastMessage('文件读取失败，请重试');
+          console.error('文件读取错误:', error);
+        }
+      };
+      
+      reader.onerror = () => {
+        this.showToastMessage('文件读取失败，请重试');
+      };
+      
+      // 使用UTF-8编码读取文件
+      reader.readAsText(file, 'UTF-8');
+      
+      // 清空input值，允许重复上传同一文件
+      event.target.value = '';
     }
   }
 };
