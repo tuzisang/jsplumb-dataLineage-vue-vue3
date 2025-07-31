@@ -503,6 +503,8 @@ export default {
       // 小地图尺寸配置
       miniMapWidth: 180,
       miniMapHeight: 120,
+      // 小地图是否正在调整大小
+      isMiniMapResizing: false,
       // 历史记录缓存
       lineageHistory: [],
       showHistoryPanel: true,
@@ -3750,6 +3752,9 @@ export default {
 
     // 处理小地图大小调整
     handleMiniMapResize({ width, height }) {
+      // 设置调整大小标志
+      this.isMiniMapResizing = true;
+      
       this.miniMapWidth = width;
       this.miniMapHeight = height;
 
@@ -3776,6 +3781,9 @@ export default {
           const offset = Math.max(0, height - 120); // 小地图高度超过120时开始上移
           tableTypeLegend.style.bottom = (baseBottom + offset + 20) + 'px';
         }
+        
+        // 重置调整大小标志
+        this.isMiniMapResizing = false;
       });
     },
 

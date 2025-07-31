@@ -128,15 +128,15 @@ export default {
       actualWidth: this.width,
       actualHeight: this.height,
       // 小地图缩放比例
-      scale: 0.05,
+      scale: 0.1,
       // 节点位置偏移量
       offsetX: 0,
       offsetY: 0,
       // 缩放控制
-      minScale: 0.01,
-      maxScale: 0.2,
+      minScale: 0.05,
+      maxScale: 0.5,
       scaleStep: 1.5, // 每次缩放的倍数
-      initialScale: 0.05, // 保存初始计算的缩放比例
+      initialScale: 0.1, // 保存初始计算的缩放比例
       // 视口指示器样式
       viewportPosition: {
         left: '0px',
@@ -212,7 +212,11 @@ export default {
       handler(newWidth) {
         this.actualWidth = newWidth;
         this.$nextTick(() => {
+          // 保存当前缩放比例
+          const currentScale = this.scale;
           this.calculateScale();
+          // 恢复之前的缩放比例，避免重置
+          this.scale = currentScale;
           this.updateViewportIndicator(true);
         });
       },
@@ -222,7 +226,11 @@ export default {
       handler(newHeight) {
         this.actualHeight = newHeight;
         this.$nextTick(() => {
+          // 保存当前缩放比例
+          const currentScale = this.scale;
           this.calculateScale();
+          // 恢复之前的缩放比例，避免重置
+          this.scale = currentScale;
           this.updateViewportIndicator(true);
         });
       },
@@ -233,6 +241,11 @@ export default {
       handler() {
         // 只有在非拖动状态下才更新视口指示器
         if (!this.dragState.isDragging) {
+          // 检查父组件是否正在调整小地图大小
+          const parent = this.$parent;
+          if (parent && parent.isMiniMapResizing) {
+            return;
+          }
           // 仅更新视口指示器位置，不重新计算缩放比例
           this.updateViewportIndicator(false);
         }
@@ -269,7 +282,11 @@ export default {
           Math.abs(newSize.height - oldSize.height) > 50;
           
         if (significantChange) {
+          // 保存当前缩放比例
+          const currentScale = this.scale;
           this.calculateScale();
+          // 恢复之前的缩放比例，避免重置
+          this.scale = currentScale;
           this.$nextTick(() => {
             this.updateViewportIndicator(true);
           });
@@ -316,8 +333,6 @@ export default {
         const userScale = parseFloat(savedScale);
         if (userScale >= this.minScale && userScale <= this.maxScale) {
           this.scale = userScale;
-          // 更新节点位置
-          this.updateNodePositions();
         }
       }
     } catch (e) {
@@ -387,7 +402,7 @@ export default {
       const scaleY = (this.actualHeight - 20) / canvasHeight;
       
       // 取较小值确保完全显示，并进一步缩小以确保边缘节点可见
-      const calculatedScale = Math.min(scaleX, scaleY) * 0.85;
+      const calculatedScale = Math.min(scaleX, scaleY) * 0.95;
       
       // 保存初始计算的缩放比例，用于重置
       this.initialScale = calculatedScale;
@@ -412,8 +427,8 @@ export default {
       this.offsetY = (this.actualHeight - canvasHeight * this.scale) / 2;
       
       // 确保偏移量不会导致节点超出可视区域
-      this.offsetX = Math.max(10, this.offsetX);
-      this.offsetY = Math.max(10, this.offsetY);
+      this.offsetX = Math.max(5, this.offsetX);
+      this.offsetY = Math.max(5, this.offsetY);
     },
     
     // 定位到第一个来源表，使其显示在小地图的偏左上角
@@ -427,16 +442,16 @@ export default {
       const firstOriginNode = originNodes[0];
       
       // 计算第一个来源表在小地图中的理想位置（偏左上角）
-      const idealLeft = 30; // 距离左边缘30px
-      const idealTop = 30;  // 距离上边缘30px
+      const idealLeft = 15; // 距离左边缘15px
+      const idealTop = 15;  // 距离上边缘15px
       
       // 计算需要的偏移量
       this.offsetX = idealLeft - firstOriginNode.left * this.scale;
       this.offsetY = idealTop - firstOriginNode.top * this.scale;
       
       // 确保偏移量不会导致节点超出可视区域
-      this.offsetX = Math.max(10, this.offsetX);
-      this.offsetY = Math.max(10, this.offsetY);
+      this.offsetX = Math.max(5, this.offsetX);
+      this.offsetY = Math.max(5, this.offsetY);
     },
     
     // 更新视口指示器
@@ -584,6 +599,9 @@ export default {
         // 发送调整大小事件
         this.$emit('resize', { width: newWidth, height: newHeight });
         
+        // 阻止事件冒泡和默认行为
+        event.stopPropagation();
+        event.preventDefault();
         return;
       }
       
@@ -710,9 +728,6 @@ export default {
       
       // 更新缩放比例
       this.scale = newScale;
-      
-      // 更新节点位置，保持视口中心不变
-      this.updateNodePositions();
       
       // 更新视口指示器，强制使用新的缩放比例
       this.updateViewportIndicator(true);
