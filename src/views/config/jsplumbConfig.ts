@@ -1,4 +1,5 @@
 import colorFields from "./tableTypeMappingColor";
+import visualConfig from "./jsplumbVisualConfig";
 
 const commConfig = {
     grid: [10, 10],
@@ -18,13 +19,13 @@ const commConfig = {
     },
     // 通常连线的样式
     PaintStyle: {
-        stroke: "#FFCC99", // 更浅的橙色
-        strokeWidth: 2
+        stroke: visualConfig.connectionStyle.default.stroke, // 更浅的橙色
+        strokeWidth: visualConfig.connectionStyle.default.strokeWidth
     },
     //hover激活连线的样式
     HoverPaintStyle: {
         stroke: colorFields[3].color,
-        strokeWidth: 2
+        strokeWidth: visualConfig.connectionStyle.hover.strokeWidth
     },
     maxConnections: -1, // 设置连接点最多可以连接几条线 -1不限
     // 绘制箭头

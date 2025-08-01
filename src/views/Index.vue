@@ -341,6 +341,7 @@
 <script lang="js">
 import jsplumbModule from 'jsplumb'
 import commConfig from './config/jsplumbConfig'
+import visualConfig from './config/jsplumbVisualConfig'
 import comm from './methods/comm'
 import { debounce, throttle } from 'lodash-es'
 
@@ -1212,7 +1213,7 @@ export default {
           }
         }
         return {
-          opacity: 0,
+          opacity: visualConfig.nodeOpacity.hidden,
           visibility: 'hidden'
         };
       }
@@ -1231,7 +1232,7 @@ export default {
           });
         }
         return {
-          opacity: isVisible ? 1 : 0.1,
+          opacity: isVisible ? visualConfig.nodeOpacity.normal : visualConfig.nodeOpacity.dimmed,
           visibility: 'visible'
         };
       }
@@ -1251,7 +1252,7 @@ export default {
         }
       }
       return {
-        opacity: 1,
+        opacity: visualConfig.nodeOpacity.normal,
         visibility: 'visible'
       };
     },
