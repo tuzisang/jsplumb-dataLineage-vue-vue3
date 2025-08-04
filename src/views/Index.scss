@@ -719,23 +719,72 @@
     }
   
     // 节点列表面板样式
-    .node-list-panel {
-      position: fixed;
-      left: 24px;
-      top: 24px;
-      bottom: 24px;
-      height: auto;
-      min-width: 220px;
-      max-width: 520px;
-      background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
-      border-radius: 14px;
-      box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
-      border: 1.5px solid #e6eaf0;
-      z-index: 10001;
+  .node-list-panel {
+    position: fixed;
+    left: 24px;
+    top: 24px;
+    bottom: 24px;
+    height: auto;
+    min-width: 40px;
+    max-width: 520px;
+    background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
+    border: 1.5px solid #e6eaf0;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    transition: box-shadow 0.2s, border 0.2s, width 0.3s ease;
+    
+    &.node-list-panel--minimized {
+      width: 40px;
+      
+      .panel-header > *:not(.minimize-btn) {
+        display: none;
+      }
+      
+      .node-list {
+        display: none;
+      }
+    }
+    
+    // 最小化按钮现代风格
+    .minimize-btn.modern {
+      position: absolute;
+      top: -38px;
+      right: 8px;
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #e6f0ff 0%, #f5faff 100%);
+      box-shadow: 0 2px 12px rgba(24,144,255,0.10), 0 1.5px 6px rgba(0,0,0,0.07);
       display: flex;
-      flex-direction: column;
-      font-size: 13px;
-      transition: box-shadow 0.2s, border 0.2s;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10002;
+      transition: background 0.22s, box-shadow 0.22s, transform 0.12s;
+      outline: none;
+      border: 1.5px solid #e6e6e6;
+      svg {
+        display: block;
+        margin: 0 auto;
+        transition: stroke 0.2s;
+      }
+      &:hover {
+        background: linear-gradient(135deg, #d0e7ff 0%, #e6f7ff 100%);
+        box-shadow: 0 4px 18px rgba(24,144,255,0.16), 0 2px 8px rgba(0,0,0,0.10);
+        svg path {
+          stroke: #096dd9;
+        }
+      }
+      &:active {
+        transform: scale(0.93);
+        background: linear-gradient(135deg, #b3d8ff 0%, #e6f7ff 100%);
+      }
+    }
       .panel-header {
         padding: 18px 18px 10px 18px;
         border-bottom: 1.5px solid #e6eaf0;

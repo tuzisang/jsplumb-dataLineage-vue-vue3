@@ -175,26 +175,37 @@
     </div>
 
     <!-- 节点列表面板 -->
-    <div class="node-list-panel" :style="{ width: panelWidth + 'px' }">
+    <div class="node-list-panel" :class="{ 'node-list-panel--minimized': isNodeListMinimized }" :style="{ width: isNodeListMinimized ? '40px' : panelWidth + 'px' }">
       <div class="panel-header">
-        <h3>
+        <h3 v-show="!isNodeListMinimized">
           <template v-if="listMode === 'table'">表列表</template>
           <template v-else>字段列表</template>
         </h3>
-        <div class="panel-search">
+        <!-- 节点列表最小化按钮 -->
+        <button class="minimize-btn modern" @click="toggleNodeListMinimize" :title="isNodeListMinimized ? '展开' : '最小化'" 
+                style="position: absolute; right: 8px; top: -38px;">
+          <svg v-if="isNodeListMinimized" width="22" height="22" viewBox="0 0 24 24" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 14l5-5 5 5" stroke="#1890ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 10l5 5 5-5" stroke="#1890ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <div class="panel-search" v-show="!isNodeListMinimized">
           <input type="text" v-model="nodeSearchQuery" :placeholder="listMode === 'table' ? '搜索表名...' : '搜索字段名...'"
             class="node-search-input" @input="handleNodeSearch">
           <span v-if="nodeSearchQuery" class="clear-search" @click="clearNodeSearch">✕</span>
         </div>
         <!-- 切换按钮 -->
-        <div class="list-toggle" style="margin-top:8px;">
+        <div class="list-toggle" style="margin-top:8px;" v-show="!isNodeListMinimized">
           <button :class="{ active: listMode === 'table' }" @click="listMode = 'table'"
             style="margin-right: 4px;">表</button>
           <button :class="{ active: listMode === 'field' }" @click="listMode = 'field'">字段</button>
         </div>
 
         <!-- 表类型筛选 -->
-        <div class="type-filter-section">
+        <div class="type-filter-section" v-show="!isNodeListMinimized">
           <div class="filter-header">
             <span class="filter-title">表类型筛选</span>
             <button class="toggle-filter-btn" @click="showTypeFilter = !showTypeFilter"
@@ -221,14 +232,14 @@
         </div>
 
         <!-- 分组显示开关 -->
-        <div class="group-toggle">
+        <div class="group-toggle" v-show="!isNodeListMinimized">
           <label class="group-toggle-label">
             <input type="checkbox" v-model="groupByType">
             <span class="toggle-text">按类型分组</span>
           </label>
         </div>
       </div>
-      <div class="node-list">
+      <div class="node-list" v-show="!isNodeListMinimized">
         <!-- 新增：表头说明 -->
         <template v-if="listMode === 'table'">
           <div class="node-list-header">
@@ -414,6 +425,7 @@ export default {
       maxPanelWidth: 600,
       filterCtes: false,
       isMinimized: false,
+      isNodeListMinimized: false, // 节点列表最小化状态
       highlightedTables: [], // 新增：存储高亮的表名
       listMode: 'table', // 新增：表/字段切换
       // 表类型筛选相关
@@ -791,6 +803,9 @@ export default {
     ...comm,
     toggleMinimize() {
       this.isMinimized = !this.isMinimized
+    },
+    toggleNodeListMinimize() {
+      this.isNodeListMinimized = !this.isNodeListMinimized
     },
     renderDefaultLineage() {
       // 对源表节点按字段数量降序排序
