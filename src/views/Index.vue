@@ -128,11 +128,11 @@
         </div>
       </div>
 
-      <!-- 显示所有节点按钮 -->
-      <button v-if="hiddenNodes.size > 0" class="batch-action-btn" @click="handleShowAllNodes">
+      <!-- 显示所有节点按钮 - 已隐藏 -->
+      <!-- <button v-if="hiddenNodes.size > 0" class="batch-action-btn" @click="handleShowAllNodes">
         <i class="show-all-icon">👁️</i>
         显示所有隐藏节点
-      </button>
+      </button> -->
     </div>
 
     <div class="flow-wrapper" ref="flowWrap">
@@ -147,7 +147,7 @@
           :highlightedFields="highlightedFields" :highlightedTables="highlightedTables"
           :isDisabled="isNodeDisabled(node)" :edges="json.edges" :isTableMode="lineageLevel === 'table'" :minus="minus"
           :focusedNode="focusedNode" @hide-node="toggleNodeVisibility" @copy-fields="copyFields"
-          @field-click="selectField" @table-name-click="handleTableNameClick" />
+          @field-click="handleFieldClick" @table-name-click="handleTableNameClick" />
 
         <!-- 辅助线 -->
         <div v-show="auxiliaryLine.isShowXLine" class="auxiliary-line auxiliary-line--x" :style="{
@@ -1540,7 +1540,7 @@ export default {
       // 复制表名到剪贴板
       this.copyToClipboard(tableInfo.tableName, `表名 "${tableInfo.tableName}" 已复制到剪贴板`);
 
-      // 查找对应的节点并聚焦
+      // 查找对应的节点并确保可见
       const node = this.json.nodes.find(n => n.name === tableInfo.tableName);
       if (node) {
         // 确保节点可见
@@ -1548,10 +1548,10 @@ export default {
           this.toggleNodeVisibility({ tableName: node.name, isHidden: false });
         }
 
-        // 延迟聚焦以确保节点已渲染
-        setTimeout(() => {
-          this.focusOnNode(node);
-        }, 100);
+        // 表级模式下高亮上下游节点和连接线
+        if (this.lineageLevel === 'table') {
+          this.handleTableHighlight({ tableName: tableInfo.tableName });
+        }
       }
     },
 
@@ -3481,21 +3481,42 @@ export default {
       // 重置表索引
       this.resetTableIndex();
 
-      // 添加新的高亮表
-      this.highlightedTables.push(tableName);
-
-      // 找到与该表相关的所有表（上下游）
+      // 找到与该表相关的所有表（上下游完整链路）
       const relatedTables = new Set([tableName]);
+      const visited = new Set();
 
-      // 遍历边找相关表
-      this.json.edges.forEach(edge => {
-        if (edge.from.name === tableName) {
-          relatedTables.add(edge.to.name);
-        }
-        if (edge.to.name === tableName) {
-          relatedTables.add(edge.from.name);
-        }
-      });
+      // 递归查找上游表
+      const findUpstream = (currentTable) => {
+        if (visited.has(currentTable)) return;
+        visited.add(currentTable);
+
+        this.json.edges.forEach(edge => {
+          if (edge.to.name === currentTable) {
+            const sourceTable = edge.from.name;
+            relatedTables.add(sourceTable);
+            findUpstream(sourceTable);
+          }
+        });
+      };
+
+      // 递归查找下游表
+      const findDownstream = (currentTable) => {
+        if (visited.has(currentTable)) return;
+        visited.add(currentTable);
+
+        this.json.edges.forEach(edge => {
+          if (edge.from.name === currentTable) {
+            const targetTable = edge.to.name;
+            relatedTables.add(targetTable);
+            findDownstream(targetTable);
+          }
+        });
+      };
+
+      // 查找完整的上下游链路
+      findUpstream(tableName);
+      visited.clear();
+      findDownstream(tableName);
 
       // 更新高亮表集合
       this.highlightedTables = Array.from(relatedTables);

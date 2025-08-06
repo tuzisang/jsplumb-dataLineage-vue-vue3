@@ -24,13 +24,14 @@
         {{ node.name }}
       </div>
       <div class="header-buttons">
-        <div 
+        <!-- 隐藏节点按钮 - 已隐藏 -->
+        <!-- <div 
           class="hide-node-btn"
           @click.stop="handleHideNode"
           title="隐藏节点"
         >
           <i class="hide-icon">👁️</i>
-        </div>
+        </div> -->
         <div 
           v-if="!isTableMode && node.fields && node.fields.length > 0"
           class="copy-fields-btn"
