@@ -318,12 +318,46 @@ export default {
 .table-node {
   position: absolute;
   cursor: move;
-  border: 1px solid #000;
+  border: 1.5px solid;
   align-items: center;
   z-index: 9995;
   background: #fff;
-  min-width: 180px;
-  background-color: #fff;
+  min-width: 200px;
+  border-radius: 16px;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  contain: layout style paint;
+  transform: translate3d(0, 0, 0);
+  will-change: transform, box-shadow;
+  backdrop-filter: blur(10px);
+  
+  &:hover:not(.dragging) {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 
+      0 10px 25px rgba(0, 0, 0, 0.15),
+      0 4px 10px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(139, 92, 246, 0.3);
+  }
+  
+  &:active:not(.dragging) {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 
+      0 6px 20px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  
+  &.dragging {
+    transition: none !important;
+    transform: translate3d(var(--drag-x, 0), var(--drag-y, 0), 0);
+    z-index: 10000;
+    cursor: grabbing;
+    box-shadow: 
+      0 20px 40px rgba(0, 0, 0, 0.2),
+      0 8px 16px rgba(0, 0, 0, 0.15);
+  }
 
   &--table-mode {
     .table-node-header {

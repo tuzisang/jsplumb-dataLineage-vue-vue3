@@ -21,46 +21,82 @@ const comm = {
     // 封装拖动，添加辅助对齐线功能
     draggableNode(nodeID) {
         this.jsplumbInstance.draggable(nodeID, {
-            grid: [5, 5], // 增大网格，减少计算频率
+            grid: [10, 10], // 增大网格，减少计算频率，提高响应速度
             drag: (params) => {
-                this.alignForLine(nodeID, params.pos)
+                // 使用节流优化对齐线计算
+                if (!this._lastDragTime || Date.now() - this._lastDragTime > 16) { // ~60fps
+                    this.alignForLine(nodeID, params.pos)
+                    this._lastDragTime = Date.now()
+                }
             },
-            start: () => {
+            start: (params) => {
+                // 开始拖动时暂停绘制，提高性能
+                this.jsplumbInstance.setSuspendDrawing(true)
+                
+                // 添加拖拽类，禁用CSS过渡
+                const nodeEl = document.getElementById(nodeID)
+                if (nodeEl) {
+                    nodeEl.classList.add('dragging')
+                    nodeEl.style.setProperty('--drag-x', params.pos[0] + 'px')
+                    nodeEl.style.setProperty('--drag-y', params.pos[1] + 'px')
+                }
             },
             stop: (params) => {
                 this.auxiliaryLine.isShowXLine = false
                 this.auxiliaryLine.isShowYLine = false
                 this.changeNodePosition(nodeID, params.pos)
-                this.redrawConnections()
+                
+                // 移除拖拽类
+                const nodeEl = document.getElementById(nodeID)
+                if (nodeEl) {
+                    nodeEl.classList.remove('dragging')
+                    nodeEl.style.removeProperty('--drag-x')
+                    nodeEl.style.removeProperty('--drag-y')
+                }
+                
+                // 使用requestAnimationFrame延迟恢复绘制，提高流畅度
+                requestAnimationFrame(() => {
+                    this.jsplumbInstance.setSuspendDrawing(false, true)
+                    this.redrawConnections()
+                })
             }
         })
     },
-    //移动节点时，动态显示对齐线
+    //移动节点时，动态显示对齐线 - 优化版本
     alignForLine(nodeID, position) {
         let showXLine = false, showYLine = false
-        this.json.nodes.some(el => {
-            if (el.name !== nodeID && el.left === position[0]) {
-                this.auxiliaryLinePos.x = position[0];
+        const [x, y] = position
+        
+        // 使用更快的查找方式，避免some的短路行为
+        for (let i = 0; i < this.json.nodes.length; i++) {
+            const el = this.json.nodes[i]
+            if (el.name === nodeID) continue
+            
+            // 使用近似匹配，减少精确匹配的计算
+            const tolerance = 5 // 5px的容差范围
+            if (Math.abs(el.left - x) <= tolerance) {
+                this.auxiliaryLinePos.x = x;
                 showYLine = true
             }
-            if (el.name !== nodeID && el.top === position[1]) {
-                this.auxiliaryLinePos.y = position[1];
+            if (Math.abs(el.top - y) <= tolerance) {
+                this.auxiliaryLinePos.y = y;
                 showXLine = true
             }
-        })
+            
+            // 如果两个方向都找到了，提前退出
+            if (showXLine && showYLine) break
+        }
+        
         this.auxiliaryLine.isShowYLine = showYLine
         this.auxiliaryLine.isShowXLine = showXLine
     },
     changeNodePosition(nodeID, pos) {
-        this.json.nodes.some(v => {
-            if (nodeID === v.name) {
-                v.left = pos[0]
-                v.top = pos[1]
-                return true
-            } else {
-                return false
-            }
-        })
+        // 优化节点位置更新，使用Map查找代替some
+        const nodeIndex = this.json.nodes.findIndex(v => v.name === nodeID)
+        if (nodeIndex !== -1) {
+            this.json.nodes[nodeIndex].left = pos[0]
+            this.json.nodes[nodeIndex].top = pos[1]
+        }
     },
     //初始化缩放功能
     initPanZoom() {

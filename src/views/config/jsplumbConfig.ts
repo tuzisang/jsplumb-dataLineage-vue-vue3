@@ -4,42 +4,57 @@ import visualConfig from "./jsplumbVisualConfig";
 const commConfig = {
     grid: [10, 10],
     Container: "flow",
-    //四种样式：Bezier/Straight/Flowchart/StateMachine
-    // 优化：使用直线连接减少计算复杂度
+    // 现代设计：使用直线连接保持简洁性，但优化端点样式
     Connector: ["Straight", {stub: 0}],
-    // Connector: ["Straight", {stub: [20, 50], gap: 0}],
-    // Connector: ["Flowchart", { stub: [20, 10], gap: 10, cornerRadius: 5, alwaysRespectStubs: true }],
-    // Connector: ["StateMachine"],
-    // 连线的端点
-    Endpoint: ["Dot", {radius: 1}],
-    // 端点的样式
+    // 优化的端点样式 - 现代圆形端点
+    Endpoint: ["Dot", {radius: 3}],
+    // 恢复浅橙色端点样式
     EndpointStyle: {
-        fill: "#fff",
-        outlineWidth: 1
+        fill: "#FFB74D",
+        outlineWidth: 2,
+        outlineStroke: "#FFA726"
     },
-    // 通常连线的样式
+    // 更浅橙色连接线样式
     PaintStyle: {
-        stroke: visualConfig.connectionStyle.default.stroke, // 更浅的橙色
-        strokeWidth: visualConfig.connectionStyle.default.strokeWidth
+        stroke: "#FFE0B2", // 更浅的橙色 - 默认连接线
+        strokeWidth: 1.5,
+        strokeLinecap: "round"
     },
-    //hover激活连线的样式
+    // 更深的红色悬停样式
     HoverPaintStyle: {
-        stroke: colorFields[3].color,
-        strokeWidth: visualConfig.connectionStyle.hover.strokeWidth
+        stroke: "#E57373",
+        strokeWidth: 2.5
     },
     maxConnections: -1, // 设置连接点最多可以连接几条线 -1不限
-    // 绘制箭头
+    // 恢复浅橙色箭头样式
     Overlays: [
         [
             "Arrow",
             {
-                width: 8,
-                length: 10,
-                location: 1
+                width: 10,
+                length: 12,
+                location: 1,
+                foldback: 0.8,
+                fill: "#FFB74D",
+                stroke: "#FFA726",
+                strokeWidth: 1
             }
         ]
     ],
     LogEnabled: false, //是否打开jsPlumb的内部日志记录
+    // 现代连接线配置
+    Anchors: ["Right", "Left"],
+    // 连接点样式优化 - 恢复浅橙色
+    EndpointHoverStyle: {
+        fill: "#FFA726",
+        stroke: "#FF9800",
+        strokeWidth: 2
+    },
+    // 连接线平滑优化 - 更深的红色
+    ConnectorHoverStyle: {
+        stroke: "#E57373",
+        strokeWidth: 2.5
+    }
 }
 
 export default commConfig

@@ -14,12 +14,19 @@
       min-width: 320px;
       max-width: 95vw;
       background: #fff;
-      border-radius: 8px;
-      border: 1px solid #ddd;
+      border-radius: 12px;
+      border: 1px solid #e6e6e6;
       padding: 0 0 8px 0;
       display: flex;
       flex-direction: column;
       align-items: stretch;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      
+      &:hover {
+        transform: translateX(-50%) translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
       
       // 最小化按钮现代风格
       .minimize-btn.modern {
@@ -321,10 +328,12 @@
           right: 0;
           margin-top: 4px;
           background: white;
-          border-radius: 8px;
-          border: 1px solid #ddd;
+          border-radius: 12px;
+          border: 1px solid #e6e6e6;
           max-height: 300px;
           overflow-y: auto;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.05);
+          transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
           
           .dropdown-header {
             display: flex;
@@ -343,6 +352,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: background-color 0.2s ease;
+            border-radius: 8px;
+            margin: 2px 4px;
+            
+            &:hover {
+              background-color: #f8f9fa;
+            }
             
             .table-name {
               color: #666;
@@ -543,11 +559,21 @@
       position: fixed;
       right: 20px;
       bottom: 150px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-      padding: 12px;
+      background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
+      padding: 16px 18px 14px 18px;
       z-index: 1000;
+      border: 1.5px solid #e6eaf0;
+      border-right: none;
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      
+      &:hover {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+      }
   
       .legend-title {
         font-size: 11px;
@@ -659,22 +685,36 @@
           padding: 8px 16px;
           background-color: #fff;
           border: 1px solid #ddd;
-          border-radius: 6px;
+          border-radius: 8px;
           font-size: 14px;
           color: #333;
           cursor: pointer;
           width: 100%;
           justify-content: center;
+          transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
           
           &:disabled {
             opacity: 0.5;
             cursor: not-allowed;
           }
           
+          &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            border-color: #1890ff;
+            color: #1890ff;
+          }
+          
+          &:active:not(:disabled) {
+            transform: translateY(0);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+          }
+          
           &.active {
             background-color: #e6f7ff;
             border-color: #1890ff;
             color: #1890ff;
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
           }
           
           .show-icon, .filter-icon, .map-icon, .show-all-icon {
@@ -729,13 +769,18 @@
     max-width: 520px;
     background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
     border-radius: 14px;
-    box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
     border: 1.5px solid #e6eaf0;
     z-index: 10001;
     display: flex;
     flex-direction: column;
     font-size: 13px;
-    transition: box-shadow 0.2s, border 0.2s, width 0.3s ease;
+    transition: box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), border 0.2s, width 0.3s ease, transform 0.2s ease;
+    
+    &:hover {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
+    }
     
     &.node-list-panel--minimized {
       width: 40px;
@@ -749,7 +794,7 @@
       }
     }
     
-    // 最小化按钮现代风格
+    // 最小化按钮现代风格 - 现代化阴影系统
     .minimize-btn.modern {
       position: absolute;
       top: -38px;
@@ -759,30 +804,39 @@
       border: none;
       border-radius: 50%;
       background: linear-gradient(135deg, #e6f0ff 0%, #f5faff 100%);
-      box-shadow: 0 2px 12px rgba(24,144,255,0.10), 0 1.5px 6px rgba(0,0,0,0.07);
+      box-shadow: 
+        0 1px 2px rgba(24, 144, 255, 0.05),
+        0 2px 8px rgba(24, 144, 255, 0.10),
+        0 4px 16px rgba(0, 0, 0, 0.04);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       z-index: 10002;
-      transition: background 0.22s, box-shadow 0.22s, transform 0.12s;
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
       outline: none;
-      border: 1.5px solid #e6e6e6;
+      border: 1px solid rgba(230, 230, 230, 0.8);
       svg {
         display: block;
         margin: 0 auto;
-        transition: stroke 0.2s;
+        transition: stroke 0.2s ease;
       }
       &:hover {
         background: linear-gradient(135deg, #d0e7ff 0%, #e6f7ff 100%);
-        box-shadow: 0 4px 18px rgba(24,144,255,0.16), 0 2px 8px rgba(0,0,0,0.10);
+        box-shadow: 
+          0 2px 4px rgba(24, 144, 255, 0.08),
+          0 4px 12px rgba(24, 144, 255, 0.15),
+          0 8px 24px rgba(0, 0, 0, 0.06);
+        transform: translateY(-1px);
         svg path {
           stroke: #096dd9;
         }
       }
       &:active {
-        transform: scale(0.93);
-        background: linear-gradient(135deg, #b3d8ff 0%, #e6f7ff 100%);
+        transform: scale(0.95) translateY(0);
+        box-shadow: 
+          0 1px 2px rgba(24, 144, 255, 0.04),
+          0 2px 6px rgba(24, 144, 255, 0.08);
       }
     }
       .panel-header {

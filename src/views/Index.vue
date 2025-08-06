@@ -1297,58 +1297,73 @@ export default {
         this.jsplumbInstance.repaintEverything();
       });
     }, 100),
-    // 重写拖动方法 - 优化版本
+    // 重写拖动方法 - 超优化版本
     draggableNode(nodeID) {
       if (!this.jsplumbInstance) return;
 
-      // 直接处理拖动事件，不使用节流
+      // 使用节流优化拖动事件处理
+      let lastDragTime = 0;
       const dragHandler = (params) => {
-        // 更新节点位置缓存
+        const now = Date.now();
+        if (now - lastDragTime < 8) return; // 125fps节流，提高响应速度
+        lastDragTime = now;
+
+        // 批量更新节点位置缓存，减少内存访问
         const node = this.nodePositions.get(nodeID);
         if (node) {
           node.top = params.pos[1];
           node.left = params.pos[0];
         }
 
-        // 在拖动过程中完全暂停连接线重绘
-        this.jsplumbInstance.setSuspendDrawing(true);
-
-        // 优化拖动时的渲染性能
+        // 使用CSS变量直接控制位置，避免DOM操作
         const element = this.getCachedElement(nodeID);
         if (element) {
-          // 使用硬件加速提高拖动流畅度
-          element.style.willChange = 'transform';
-          element.style.transform = 'translate3d(0, 0, 0)';
-
-          // 添加更多优化以提高跟手感
-          if (this.renderOptimizations.enableLayerOptimization) {
-            this.optimizeLayer(element, 'transform');
-            this.applyTransformOptimization(element, 'translate3d(0, 0, 0)');
-          }
+          element.style.setProperty('--drag-x', params.pos[0] + 'px');
+          element.style.setProperty('--drag-y', params.pos[1] + 'px');
         }
       };
 
       this.jsplumbInstance.draggable(nodeID, {
-        // 使用更小的网格尺寸以获得更平滑的拖动体验
-        grid: [2, 2],
+        // 增大网格尺寸，减少计算量，提高响应速度
+        grid: [8, 8],
+        start: (params) => {
+          // 开始拖动时优化
+          const element = this.getCachedElement(nodeID);
+          if (element) {
+            element.classList.add('dragging');
+            element.style.setProperty('--drag-x', params.pos[0] + 'px');
+            element.style.setProperty('--drag-y', params.pos[1] + 'px');
+          }
+          
+          // 暂停连接线绘制以提高性能
+          this.jsplumbInstance.setSuspendDrawing(true);
+        },
         drag: dragHandler,
         stop: (params) => {
           this.auxiliaryLine.isShowXLine = false;
           this.auxiliaryLine.isShowYLine = false;
           this.changeNodePosition(nodeID, params.pos);
 
-          // 清理拖动时的图层优化
+          // 清理拖动状态
           const element = this.getCachedElement(nodeID);
           if (element) {
-            this.cleanupLayerOptimization(element);
-            this.cleanupCSSOptimizations(element);
-
-            // 恢复默认状态
-            element.style.willChange = 'auto';
+            element.classList.remove('dragging');
+            element.style.removeProperty('--drag-x');
+            element.style.removeProperty('--drag-y');
+            
+            // 清理优化
+            if (this.cleanupLayerOptimization) {
+              this.cleanupLayerOptimization(element);
+            }
+            if (this.cleanupCSSOptimizations) {
+              this.cleanupCSSOptimizations(element);
+            }
           }
 
-          // 恢复连接线绘制并重绘
-          this.jsplumbInstance.setSuspendDrawing(false, true);
+          // 使用requestAnimationFrame确保流畅恢复
+          requestAnimationFrame(() => {
+            this.jsplumbInstance.setSuspendDrawing(false, true);
+          });
         }
       });
     },
@@ -1602,7 +1617,7 @@ export default {
       traverse(tableName, fieldName);
       return relatedFields;
     },
-    // 高亮连接线
+    // 高亮连接线 - 修复关键路径模式下的可见性问题
     highlightConnections(relatedFields) {
       if (!this.jsplumbInstance || this.lineageLevel === 'table' || !relatedFields || relatedFields.length === 0) return;
 
@@ -1611,7 +1626,11 @@ export default {
       // 重置所有连接线样式
       allConnections.forEach(conn => {
         conn.setPaintStyle(this.commConfig.PaintStyle);
+        conn.removeClass('critical-path-highlight');
       });
+
+      // 收集所有相关表的节点名
+      const relatedTableNames = new Set(relatedFields.map(f => f.tableName));
 
       // 高亮相关连接线
       allConnections.forEach(conn => {
@@ -1630,12 +1649,14 @@ export default {
         if (isSourceRelated && isTargetRelated) {
           // 如果源和目标都是相关字段，高亮连接线
           conn.setPaintStyle(this.commConfig.HoverPaintStyle);
+          conn.addClass('critical-path-highlight');
 
-          // 确保连接线和端点在关键路径模式下可见
+          // 在关键路径模式下，确保相关节点和连接都可见
           if (this.showOnlyCriticalPath) {
+            // 确保连接线可见
             conn.setVisible(true);
-
-            // 确保源节点和目标节点在关键路径中
+            
+            // 确保相关节点在关键路径中
             this.criticalPathNodes.add(sourceId);
             this.criticalPathNodes.add(targetId);
 
@@ -1648,14 +1669,30 @@ export default {
             }
 
             // 确保端点可见
-            const sourceElement = document.getElementById(conn.sourceId);
-            const targetElement = document.getElementById(conn.targetId);
-
-            if (sourceElement) sourceElement.style.display = 'block';
-            if (targetElement) targetElement.style.display = 'block';
+            this.$nextTick(() => {
+              this.jsplumbInstance.show(sourceId + this.minus);
+              this.jsplumbInstance.show(targetId + this.minus);
+            });
+          }
+        } else if (this.showOnlyCriticalPath) {
+          // 在关键路径模式下，隐藏不相关的连接
+          const isSourceInPath = this.criticalPathNodes.has(sourceId);
+          const isTargetInPath = this.criticalPathNodes.has(targetId);
+          
+          if (!isSourceInPath || !isTargetInPath) {
+            conn.setVisible(false);
           }
         }
       });
+
+      // 在关键路径模式下，确保所有相关节点可见
+      if (this.showOnlyCriticalPath) {
+        relatedTableNames.forEach(tableName => {
+          if (this.hiddenNodes.has(tableName)) {
+            this.hiddenNodes.delete(tableName);
+          }
+        });
+      }
 
       // 重绘所有连接
       this.jsplumbInstance.repaintEverything();
