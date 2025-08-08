@@ -16,12 +16,21 @@
       :style="setColor(node.type, 17)"
       :class="{ 'table-highlighted': isTableHighlighted }"
     >
-      <div 
-        :id="`${node.name}${minus}`" 
-        class="table-node-name" 
-        @click.stop="handleTableNameClick"
-      >
-        {{ node.name }}
+      <div class="header-left">
+        <input 
+          type="checkbox" 
+          class="table-checkbox"
+          :checked="isTableSelected"
+          @change="handleTableSelect"
+          @click.stop
+        />
+        <div 
+          :id="`${node.name}${minus}`" 
+          class="table-node-name" 
+          @click.stop="handleTableNameClick"
+        >
+          {{ node.name }}
+        </div>
       </div>
       <div class="header-buttons">
         <!-- 隐藏节点按钮 - 已隐藏 -->
@@ -113,6 +122,10 @@ export default {
       type: Array,
       default: () => []
     },
+    selectedTables: {  // 新增：选中的表名列表
+      type: Array,
+      default: () => []
+    },
     focusedNode: {
       type: String,
       default: ''
@@ -135,6 +148,10 @@ export default {
     // 检查表是否被高亮
     isTableHighlighted() {
       return this.highlightedTables.includes(this.node.name);
+    },
+    // 检查表是否被选中
+    isTableSelected() {
+      return this.selectedTables && this.selectedTables.includes(this.node.name);
     },
     setCoordinate() {
       return {
@@ -292,6 +309,18 @@ export default {
         isHidden: !this.isHidden
       });
     },
+    // 处理表选择
+    handleTableSelect(event) {
+      if (this.isDisabled) {
+        event.stopPropagation();
+        event.preventDefault();
+        return;
+      }
+      this.$emit('table-select', {
+        tableName: this.node.name,
+        isSelected: event.target.checked
+      });
+    },
     // 检查字段名是否存在不完全匹配
     hasFieldNameMismatch(fieldName) {
       // 如果是源表，检查所有引用这个字段的目标字段
@@ -380,12 +409,59 @@ export default {
     align-items: center;
     cursor: pointer;
     
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .table-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin: 0;
+      appearance: none;
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1.5px solid rgba(255, 255, 255, 0.4);
+      border-radius: 3px;
+      position: relative;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: scale(1.1);
+      }
+      
+      &:checked {
+        background-color: rgba(255, 255, 255, 0.9);
+        border-color: rgba(255, 255, 255, 0.9);
+      }
+      
+      &:checked::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #4f46e5;
+        font-size: 12px;
+        font-weight: bold;
+        line-height: 1;
+      }
+    }
+    
     .table-node-name {
       font-size: 14px;
       font-weight: 500;
       color: #fff;
-      margin-right: 8px;
       user-select: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     
     .header-buttons {

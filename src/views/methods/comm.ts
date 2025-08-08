@@ -214,59 +214,16 @@ const comm = {
     //初始化节点位置  （以便对齐,居中）
     fixNodesPosition() {
         if (this.json.nodes && this.$refs.flowWrap) {
-            const nodeWidth = 120
-            const nodeHeight = 40
-            let wrapInfo = this.$refs.flowWrap.getBoundingClientRect()
-            let maxLeft = 0,
-                minLeft = Infinity,
-                maxTop = 0,
-                minTop = Infinity;
-            let nodePoint = {
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 0
-            }
-            let fixTop = 0,
-                fixLeft = 0;
-            this.json.nodes.forEach(el => {
-                let top = el.top
-                let left = el.left
-                maxLeft = left > maxLeft ? left : maxLeft
-                minLeft = left < minLeft ? left : minLeft
-                maxTop = top > maxTop ? top : maxTop
-                minTop = top < minTop ? top : minTop
-            })
+            // 总是使用与关键血缘相同的坐标计算方式重新计算节点位置
+            const recalculatedNodes = this.recalculateNodeCoordinates(this.json.nodes, this.json.edges || []);
             
-            // 如果节点位置都很小（比如都是50以内），说明是初始数据，需要重新布局
-            if (maxLeft < 100 && maxTop < 100) {
-                // 使用简单的网格布局
-                this.json.nodes.forEach((node, index) => {
-                    const row = Math.floor(index / 3); // 每行3个节点
-                    const col = index % 3;
-                    node.top = 100 + row * 150;
-                    node.left = 100 + col * 300;
-                });
-            } else {
-                // 计算画布中心位置 - 使用更合理的位置
-                const canvasCenterX = 800; // 画布中心附近
-                const canvasCenterY = 400; // 画布中心附近
-                
-                // 计算节点群的中心位置
-                const nodesCenterX = (maxLeft + minLeft) / 2;
-                const nodesCenterY = (maxTop + minTop) / 2;
-                
-                // 计算需要移动的距离，使节点群居中
-                fixLeft = canvasCenterX - nodesCenterX;
-                fixTop = canvasCenterY - nodesCenterY;
-
-                this.json.nodes.map(el => {
-                    let top = Number(el.top) + fixTop;
-                    let left = Number(el.left) + fixLeft;
-                    el.top = (Math.round(top / 20)) * 20
-                    el.left = (Math.round(left / 20)) * 20
-                })
-            }
+            // 应用重新计算后的坐标
+            recalculatedNodes.forEach((newNode, index) => {
+                if (this.json.nodes[index]) {
+                    this.json.nodes[index].left = newNode.left;
+                    this.json.nodes[index].top = newNode.top;
+                }
+            });
         }
     },
     // 轻量级重绘连接线，避免reset导致视角丢失

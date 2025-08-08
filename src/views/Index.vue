@@ -89,7 +89,13 @@
         {{ showOnlyCriticalPath ? '显示所有节点' : '仅显示关键路径' }}
       </button>
 
-
+      <!-- 仅显示关键血缘/显示全景血缘按钮 -->
+      <button class="batch-action-btn" @click="showCriticalLineage" :class="{ 'active': isShowingCriticalLineage }" 
+              :disabled="!isShowingCriticalLineage && selectedTables.length === 0" 
+              :title="isShowingCriticalLineage ? '返回显示所有表的全景血缘' : (selectedTables.length === 0 ? '请先勾选要显示的表' : '显示选中表的关键血缘')">
+        <i class="filter-icon">⚡</i>
+        {{ isShowingCriticalLineage ? '显示全景血缘' : '仅显示关键血缘' }}
+      </button>
 
       <!-- 历史记录面板 -->
       <div class="history-panel">
@@ -145,9 +151,10 @@
       <div id="table-flow" class="table-flow">
         <TableNode v-for="node in computedVisibleNodes" :key="node.name" :node="node"
           :highlightedFields="highlightedFields" :highlightedTables="highlightedTables"
-          :isDisabled="isNodeDisabled(node)" :edges="json.edges" :isTableMode="lineageLevel === 'table'" :minus="minus"
-          :focusedNode="focusedNode" @hide-node="toggleNodeVisibility" @copy-fields="copyFields"
-          @field-click="handleFieldClick" @table-name-click="handleTableNameClick" />
+          :selectedTables="selectedTables" :isDisabled="isNodeDisabled(node)" :edges="json.edges" 
+          :isTableMode="lineageLevel === 'table'" :minus="minus" :focusedNode="focusedNode" 
+          @hide-node="toggleNodeVisibility" @copy-fields="copyFields" @field-click="handleFieldClick" 
+          @table-name-click="handleTableNameClick" @table-select="handleTableSelect" />
 
         <!-- 辅助线 -->
         <div v-show="auxiliaryLine.isShowXLine" class="auxiliary-line auxiliary-line--x" :style="{
@@ -427,6 +434,7 @@ export default {
       isMinimized: false,
       isNodeListMinimized: false, // 节点列表最小化状态
       highlightedTables: [], // 新增：存储高亮的表名
+      selectedTables: [], // 新增：存储选中的表名
       listMode: 'table', // 新增：表/字段切换
       // 表类型筛选相关
       showTypeFilter: false, // 是否显示类型筛选
@@ -521,7 +529,13 @@ export default {
       // 历史记录缓存
       lineageHistory: [],
       showHistoryPanel: true,
-      maxHistoryItems: 5
+      maxHistoryItems: 5,
+      // 关键血缘显示相关
+      isShowingCriticalLineage: false,
+      originalNodes: [],
+      originalEdges: [],
+      criticalLineageNodes: [],
+      criticalLineageEdges: []
     };
   },
   mounted() {
@@ -1548,10 +1562,395 @@ export default {
           this.toggleNodeVisibility({ tableName: node.name, isHidden: false });
         }
 
-        // 表级模式下高亮上下游节点和连接线
-        if (this.lineageLevel === 'table') {
-          this.handleTableHighlight({ tableName: tableInfo.tableName });
+        // 点击节点仅复制表名，不再触发高亮
+        // 高亮功能仅通过复选框实现
+      }
+    },
+    // 处理表选择事件
+    handleTableSelect(tableInfo) {
+      const { tableName, isSelected } = tableInfo;
+      
+      if (isSelected) {
+        // 如果选中，添加到selectedTables
+        if (!this.selectedTables.includes(tableName)) {
+          this.selectedTables.push(tableName);
         }
+      } else {
+        // 如果取消选中，从selectedTables移除
+        this.selectedTables = this.selectedTables.filter(name => name !== tableName);
+      }
+      
+      // 更新高亮
+      this.updateTableHighlights();
+    },
+    // 更新表高亮
+    updateTableHighlights() {
+      if (this.lineageLevel === 'table') {
+        // 重新计算所有选中表的完整高亮关系
+        const allRelatedTables = new Set();
+        
+        this.selectedTables.forEach(tableName => {
+          // 找到与该表相关的所有表（上下游完整链路）
+          const relatedTables = new Set([tableName]);
+          const visited = new Set();
+
+          // 递归查找上游表
+          const findUpstream = (currentTable) => {
+            if (visited.has(currentTable)) return;
+            visited.add(currentTable);
+
+            this.json.edges.forEach(edge => {
+              if (edge.to.name === currentTable) {
+                const sourceTable = edge.from.name;
+                relatedTables.add(sourceTable);
+                findUpstream(sourceTable);
+              }
+            });
+          };
+
+          // 递归查找下游表
+          const findDownstream = (currentTable) => {
+            if (visited.has(currentTable)) return;
+            visited.add(currentTable);
+
+            this.json.edges.forEach(edge => {
+              if (edge.from.name === currentTable) {
+                const targetTable = edge.to.name;
+                relatedTables.add(targetTable);
+                findDownstream(targetTable);
+              }
+            });
+          };
+
+          // 查找完整的上下游链路
+          findUpstream(tableName);
+          visited.clear();
+          findDownstream(tableName);
+          
+          // 将所有相关表添加到总集合中
+          relatedTables.forEach(table => allRelatedTables.add(table));
+        });
+
+        // 更新高亮表集合
+        this.highlightedTables = Array.from(allRelatedTables);
+
+        // 高亮相关的连接线
+        this.$nextTick(() => {
+          this.highlightTableConnections(this.highlightedTables);
+        });
+      }
+    },
+
+    // 显示关键血缘
+    showCriticalLineage() {
+      if (this.isShowingCriticalLineage) {
+        // 切换回全景血缘 - 任何时候都可以点击
+        this.restoreOriginalLineage();
+        this.isShowingCriticalLineage = false;
+      } else {
+        // 显示关键血缘 - 需要勾选表
+        if (this.selectedTables.length === 0) {
+          this.showToastMessage('请先勾选要显示的表');
+          return;
+        }
+        this.generateCriticalLineage();
+        this.isShowingCriticalLineage = true;
+      }
+    },
+
+    // 生成关键血缘
+    generateCriticalLineage() {
+      // 保存原始数据
+      if (!this.isShowingCriticalLineage) {
+        this.originalNodes = [...this.json.nodes];
+        this.originalEdges = [...this.json.edges];
+      }
+
+      // 收集所有关键节点（包括上下游完整链路）
+      const criticalNodes = new Set();
+      const criticalEdges = [];
+
+      // 递归查找上游表
+      const findUpstream = (currentTable, visited = new Set()) => {
+        if (visited.has(currentTable)) return;
+        visited.add(currentTable);
+        criticalNodes.add(currentTable);
+
+        this.originalEdges.forEach(edge => {
+          if (edge.to.name === currentTable) {
+            const sourceTable = edge.from.name;
+            criticalNodes.add(sourceTable);
+            findUpstream(sourceTable, visited);
+          }
+        });
+      };
+
+      // 递归查找下游表
+      const findDownstream = (currentTable, visited = new Set()) => {
+        if (visited.has(currentTable)) return;
+        visited.add(currentTable);
+        criticalNodes.add(currentTable);
+
+        this.originalEdges.forEach(edge => {
+          if (edge.from.name === currentTable) {
+            const targetTable = edge.to.name;
+            criticalNodes.add(targetTable);
+            findDownstream(targetTable, visited);
+          }
+        });
+      };
+
+      // 为每个选中的表查找完整链路
+      this.selectedTables.forEach(tableName => {
+        findUpstream(tableName);
+        findDownstream(tableName);
+      });
+
+      // 过滤出关键节点和边
+      const filteredNodes = this.originalNodes.filter(node => criticalNodes.has(node.name));
+      const filteredEdges = this.originalEdges.filter(edge => 
+        criticalNodes.has(edge.from.name) && criticalNodes.has(edge.to.name)
+      );
+
+      // 重新计算坐标
+      const recalculatedNodes = this.recalculateNodeCoordinates(filteredNodes, filteredEdges);
+
+      // 更新数据
+      this.json.nodes = recalculatedNodes;
+      this.json.edges = filteredEdges;
+
+      // 重新渲染血缘图
+      this.$nextTick(() => {
+        console.log('重新渲染血缘图，当前模式:', this.isShowingCriticalLineage ? '关键血缘' : '全景血缘');
+        this.reRenderLineage();
+      });
+    },
+
+    // 重新计算节点坐标
+    recalculateNodeCoordinates(nodes, edges) {
+      if (nodes.length === 0) return [];
+
+      // 计算每个节点的层级（基于到源节点的距离）
+      const nodeLevels = new Map();
+      const nodeConnections = new Map();
+
+      // 初始化连接关系
+      nodes.forEach(node => {
+        nodeConnections.set(node.name, {
+          inputs: [],
+          outputs: []
+        });
+      });
+
+      edges.forEach(edge => {
+        if (nodeConnections.has(edge.from.name) && nodeConnections.has(edge.to.name)) {
+          nodeConnections.get(edge.from.name).outputs.push(edge.to.name);
+          nodeConnections.get(edge.to.name).inputs.push(edge.from.name);
+        }
+      });
+
+      // 计算层级（拓扑排序）
+      const visited = new Set();
+      const calculateLevel = (nodeName, level = 0) => {
+        if (visited.has(nodeName)) return;
+        visited.add(nodeName);
+
+        const currentLevel = nodeLevels.get(nodeName) || 0;
+        nodeLevels.set(nodeName, Math.max(currentLevel, level));
+
+        const connections = nodeConnections.get(nodeName);
+        if (connections) {
+          connections.outputs.forEach(child => {
+            calculateLevel(child, level + 1);
+          });
+        }
+      };
+
+      // 从没有输入的节点开始计算
+      nodes.forEach(node => {
+        const connections = nodeConnections.get(node.name);
+        if (connections && connections.inputs.length === 0) {
+          calculateLevel(node.name, 0);
+        }
+      });
+
+      // 如果还有未计算的节点，从任意节点开始
+      nodes.forEach(node => {
+        if (!visited.has(node.name)) {
+          calculateLevel(node.name, 0);
+        }
+      });
+
+      // 按层级分组
+      const levelGroups = new Map();
+      nodes.forEach(node => {
+        const level = nodeLevels.get(node.name) || 0;
+        if (!levelGroups.has(level)) {
+          levelGroups.set(level, []);
+        }
+        levelGroups.get(level).push(node);
+      });
+
+      // 重新分配坐标 - 优化间距和初始位置，让节点更紧凑
+      const levelWidth = 500; // 保持水平间距500px
+      const nodeHeight = 120;  // 大幅减少垂直间距，让节点更紧凑
+      const startX = 200;      // 从视图左侧200px开始
+      const startY = 60;       // 从视图顶部60px开始
+
+      // 计算最大宽度和高度，用于居中
+      const maxLevel = Math.max(...Array.from(levelGroups.keys()), 0);
+      const maxNodesInLevel = Math.max(...Array.from(levelGroups.values()).map(levelNodes => levelNodes.length), 1);
+      
+      // 计算实际需要的画布尺寸
+      const canvasWidth = Math.max(1200, (maxLevel + 1) * levelWidth);
+      const canvasHeight = Math.max(400, maxNodesInLevel * nodeHeight);
+      
+      // 计算每一层的节点垂直分布 - 紧凑布局
+      return nodes.map(node => {
+        const level = nodeLevels.get(node.name) || 0;
+        const levelNodes = levelGroups.get(level);
+        const indexInLevel = levelNodes.indexOf(node);
+        
+        // 紧凑垂直分布，减少间距
+        const levelStartY = startY + (indexInLevel * nodeHeight) + 10; // 每层之间只增加10px间距
+        
+        return {
+          ...node,
+          left: startX + level * levelWidth,
+          top: levelStartY
+        };
+      });
+    },
+
+    // 恢复原始血缘
+    restoreOriginalLineage() {
+      // 清除所有勾选状态
+      this.selectedTables = [];
+      
+      // 使用关键血缘的坐标计算方式重新计算全景节点位置
+      const recalculatedNodes = this.recalculateNodeCoordinates(this.originalNodes, this.originalEdges);
+      
+      // 应用重新计算后的坐标
+      this.json.nodes = recalculatedNodes;
+      this.json.edges = [...this.originalEdges];
+      
+      // 重新渲染血缘图
+      this.$nextTick(() => {
+        this.reRenderLineage();
+      });
+    },
+
+    // 重新渲染血缘图
+    reRenderLineage() {
+      if (this.jsplumbInstance) {
+        this.jsplumbInstance.reset();
+        this.initializeNodesAndConnections();
+        
+        // 重新应用高亮状态
+        if (this.lineageLevel === 'table') {
+          this.updateTableHighlights();
+        }
+        
+        // 根据当前模式选择合适的定位策略
+        this.$nextTick(() => {
+          if (this.isShowingCriticalLineage) {
+            // 关键血缘模式：定位到左上角第一个节点
+            this.positionToFirstNode();
+          } else {
+            // 全景模式：自动调整视图居中显示
+            this.autoAdjustViewport();
+          }
+        });
+      }
+    },
+    
+    // 将镜头定位到左上角的第一个节点（复用MiniMap的定位逻辑）
+    positionToFirstNode() {
+      if (!this.jsplumbInstance || !this.json.nodes || this.json.nodes.length === 0) return;
+      
+      // 找到左上角的节点（最小的left和top值）
+      let topLeftNode = null;
+      let minLeft = Infinity;
+      let minTop = Infinity;
+      
+      this.json.nodes.forEach(node => {
+        if (node.left < minLeft || (node.left === minLeft && node.top < minTop)) {
+          minLeft = node.left;
+          minTop = node.top;
+          topLeftNode = node;
+        }
+      });
+      
+      if (!topLeftNode) return;
+      
+      // 获取容器尺寸
+      const container = this.$refs.flowWrap;
+      if (!container) return;
+      
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      
+      // 将左上角的节点定位到视图左上角，留出适当边距
+      const marginLeft = 50;  // 左边距50px
+      const marginTop = 50;   // 上边距50px
+      
+      const targetX = marginLeft - topLeftNode.left;
+      const targetY = marginTop - topLeftNode.top;
+      
+      // 使用jsPlumb的pan方法移动视图
+      if (this.jsplumbInstance.pan && this.jsplumbInstance.pan.moveTo) {
+        this.jsplumbInstance.pan.moveTo(targetX, targetY);
+      }
+    },
+
+    // 自动调整视图到合适位置
+    autoAdjustViewport() {
+      if (!this.jsplumbInstance || !this.json.nodes || this.json.nodes.length === 0) return;
+
+      // 计算所有节点的边界
+      let minLeft = Infinity, minTop = Infinity;
+      let maxLeft = -Infinity, maxTop = -Infinity;
+
+      this.json.nodes.forEach(node => {
+        minLeft = Math.min(minLeft, node.left);
+        minTop = Math.min(minTop, node.top);
+        maxLeft = Math.max(maxLeft, node.left);
+        maxTop = Math.max(maxTop, node.top);
+      });
+
+      // 获取容器尺寸
+      const container = this.$refs.flowWrap;
+      if (!container) return;
+
+      const containerWidth = container.clientWidth || window.innerWidth - 300; // 考虑侧边栏
+      const containerHeight = container.clientHeight || window.innerHeight - 200; // 考虑顶部栏
+
+      // 计算内容区域尺寸（包含节点实际尺寸）
+      const nodeWidth = 350;  // 节点宽度
+      const nodeHeight = 150; // 节点高度
+      const contentWidth = maxLeft - minLeft + nodeWidth;
+      const contentHeight = maxTop - minTop + nodeHeight;
+
+      // 计算居中位置，确保节点始终在视图内
+      let targetX, targetY;
+      
+      // 始终将第一个节点放在视图左上角附近，确保可见
+      if (this.json.nodes.length <= 5) {
+        // 少量节点时，放在左上角附近
+        targetX = 100 - minLeft;
+        targetY = 100 - minTop;
+      } else {
+        // 多节点时，确保所有节点都在视图内
+        const centerX = (containerWidth - contentWidth) / 2;
+        const centerY = (containerHeight - contentHeight) / 2;
+        
+        targetX = Math.max(50, centerX - minLeft);
+        targetY = Math.max(50, centerY - minTop);
+      }
+
+      // 使用jsPlumb的pan方法移动视图
+      if (this.jsplumbInstance.pan && this.jsplumbInstance.pan.moveTo) {
+        this.jsplumbInstance.pan.moveTo(targetX, targetY);
       }
     },
 
@@ -3290,7 +3689,17 @@ export default {
       const ruleKey = `${selector}-${JSON.stringify(properties)}`;
       if (this.cssCache.has(ruleKey)) return;
 
-      const cssText = `${selector} { ${Object.entries(properties)
+      // 转义选择器中的特殊字符
+      let safeSelector = selector;
+      if (selector.includes('#')) {
+        const parts = selector.split('#');
+        if (parts.length === 2) {
+          const safeId = CSS.escape ? CSS.escape(parts[1]) : parts[1].replace(/[^\w\-]/g, '\\$&');
+          safeSelector = `${parts[0]}#${safeId}`;
+        }
+      }
+
+      const cssText = `${safeSelector} { ${Object.entries(properties)
         .map(([key, value]) => `${key}: ${value}`)
         .join('; ')} }`;
 
@@ -3324,7 +3733,10 @@ export default {
     applyBackfaceVisibility(element) {
       if (!element || !this.cssOptimizations.useBackfaceVisibility) return;
 
-      this.addOptimizedCSSRule(`#${element.id}`, {
+      // 转义CSS选择器中的特殊字符
+      const safeId = CSS.escape ? CSS.escape(element.id) : element.id.replace(/[^\w\-]/g, '\\$&');
+      
+      this.addOptimizedCSSRule(`#${safeId}`, {
         'backface-visibility': 'hidden',
         'transform-style': 'preserve-3d'
       });
@@ -3470,61 +3882,10 @@ export default {
       }
     },
 
-    // 新增：处理表级高亮
+    // 新增：处理单个表的表级高亮（用于复选框选择的辅助方法）
     handleTableHighlight(data) {
-      const { tableName } = data;
-
-      // 清除之前的高亮
-      this.highlightedTables = [];
-      this.highlightedFields = [];
-
-      // 重置表索引
-      this.resetTableIndex();
-
-      // 找到与该表相关的所有表（上下游完整链路）
-      const relatedTables = new Set([tableName]);
-      const visited = new Set();
-
-      // 递归查找上游表
-      const findUpstream = (currentTable) => {
-        if (visited.has(currentTable)) return;
-        visited.add(currentTable);
-
-        this.json.edges.forEach(edge => {
-          if (edge.to.name === currentTable) {
-            const sourceTable = edge.from.name;
-            relatedTables.add(sourceTable);
-            findUpstream(sourceTable);
-          }
-        });
-      };
-
-      // 递归查找下游表
-      const findDownstream = (currentTable) => {
-        if (visited.has(currentTable)) return;
-        visited.add(currentTable);
-
-        this.json.edges.forEach(edge => {
-          if (edge.from.name === currentTable) {
-            const targetTable = edge.to.name;
-            relatedTables.add(targetTable);
-            findDownstream(targetTable);
-          }
-        });
-      };
-
-      // 查找完整的上下游链路
-      findUpstream(tableName);
-      visited.clear();
-      findDownstream(tableName);
-
-      // 更新高亮表集合
-      this.highlightedTables = Array.from(relatedTables);
-
-      // 高亮相关的连接线
-      this.$nextTick(() => {
-        this.highlightTableConnections(this.highlightedTables);
-      });
+      // 这个方法现在仅用于updateTableHighlights内部调用
+      // 实际高亮逻辑已移至updateTableHighlights中统一处理
     },
 
     // 修改：高亮表级连接线
