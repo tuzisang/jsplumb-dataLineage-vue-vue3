@@ -927,6 +927,18 @@
           box-sizing: border-box;
           font-size: 13px;
           font-weight: 500;
+          
+          .node-checkbox {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+            
+            &:hover {
+              transform: scale(1.1);
+            }
+          }
           &:hover {
             background: #e6f0ff;
             color: #1890ff;

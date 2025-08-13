@@ -279,6 +279,13 @@
                   'node-focused': focusedNode === node.name,
                   'search-highlight': isNodeHighlighted(node)
                 }" @click="focusOnNode(node)">
+                  <input 
+                    type="checkbox" 
+                    class="node-checkbox"
+                    :checked="isTableSelected(node.name)"
+                    @change="handleNodeListTableSelect(node.name, $event)"
+                    @click.stop
+                  />
                   <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(node.type) }"></span>
                   <span class="node-name" v-html="highlightSearchText(node.name)"></span>
                   <span class="node-fields-count">
@@ -294,6 +301,13 @@
               'node-focused': focusedNode === node.name,
               'search-highlight': isNodeHighlighted(node)
             }" @click="focusOnNode(node)">
+              <input 
+                type="checkbox" 
+                class="node-checkbox"
+                :checked="isTableSelected(node.name)"
+                @change="handleNodeListTableSelect(node.name, $event)"
+                @click.stop
+              />
               <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(node.type) }"></span>
               <span class="node-name" v-html="highlightSearchText(node.name)"></span>
               <span class="node-fields-count">
@@ -658,6 +672,18 @@ export default {
         }
       },
       deep: true
+    },
+    // 修复：监听lineageLevel变化，确保模式切换时所有节点都可以拖动
+    lineageLevel: {
+      handler(newLevel, oldLevel) {
+        if (newLevel !== oldLevel) {
+          this.$nextTick(() => {
+            // 确保所有节点在模式切换后都可以拖动
+            this.restoreAllNodesDraggable();
+          });
+        }
+      },
+      immediate: false
     }
   },
   computed: {
@@ -883,7 +909,19 @@ export default {
         // 在初始化完成后重新初始化虚拟化
         this.$nextTick(() => {
           this.initVirtualization();
+          // 修复：确保所有节点在初始化完成后都可以拖动
+          this.restoreAllNodesDraggable();
         });
+      });
+    },
+
+    // 修复：添加方法确保所有节点都可以拖动
+    restoreAllNodesDraggable() {
+      if (!this.jsplumbInstance || !this.json.nodes) return;
+      
+      this.json.nodes.forEach(node => {
+        this.draggableNode(node.name);
+        this.jsplumbInstance.setDraggable(node.name, true);
       });
     },
     // 初始化节点位置缓存
@@ -904,7 +942,10 @@ export default {
 
       // 使用批量处理初始化节点
       await this.processLargeArray(this.json.nodes, (node) => {
+        // 修复：确保所有节点都可以拖动，不受表类型或模式限制
         this.draggableNode(node.name);
+        this.jsplumbInstance.setDraggable(node.name, true);
+        
         // 为节点添加端点，即使没有字段
         this.addEndpoint(node.name.concat(this.minus), this.anchorArr);
 
@@ -1311,32 +1352,20 @@ export default {
         this.jsplumbInstance.repaintEverything();
       });
     }, 100),
-    // 重写拖动方法 - 超优化版本
+    // 重写拖动方法 - 修复缩放下的坐标转换问题
     draggableNode(nodeID) {
       if (!this.jsplumbInstance) return;
 
+      // 获取panzoom实例用于坐标转换
+      const pan = this.jsplumbInstance.pan;
+      if (!pan) return;
+
       // 使用节流优化拖动事件处理
       let lastDragTime = 0;
-      const dragHandler = (params) => {
-        const now = Date.now();
-        if (now - lastDragTime < 8) return; // 125fps节流，提高响应速度
-        lastDragTime = now;
-
-        // 批量更新节点位置缓存，减少内存访问
-        const node = this.nodePositions.get(nodeID);
-        if (node) {
-          node.top = params.pos[1];
-          node.left = params.pos[0];
-        }
-
-        // 使用CSS变量直接控制位置，避免DOM操作
-        const element = this.getCachedElement(nodeID);
-        if (element) {
-          element.style.setProperty('--drag-x', params.pos[0] + 'px');
-          element.style.setProperty('--drag-y', params.pos[1] + 'px');
-        }
-      };
-
+      let startMousePos = null;
+      let startNodePos = null;
+      
+      // 修复：使用自定义的拖动处理来解决缩放下的坐标问题
       this.jsplumbInstance.draggable(nodeID, {
         // 增大网格尺寸，减少计算量，提高响应速度
         grid: [8, 8],
@@ -1345,25 +1374,94 @@ export default {
           const element = this.getCachedElement(nodeID);
           if (element) {
             element.classList.add('dragging');
-            element.style.setProperty('--drag-x', params.pos[0] + 'px');
-            element.style.setProperty('--drag-y', params.pos[1] + 'px');
+          }
+          
+          // 记录起始鼠标位置和节点位置
+          const currentTransform = pan.getTransform();
+          const scale = currentTransform.scale;
+          
+          // 获取当前节点位置
+          const node = this.json.nodes.find(n => n.name === nodeID);
+          if (node) {
+            startNodePos = { left: node.left, top: node.top };
+            
+            // 将节点坐标转换为屏幕坐标
+            const containerRect = this.jsplumbInstance.getContainer().getBoundingClientRect();
+            startMousePos = {
+              x: params.e.clientX,
+              y: params.e.clientY
+            };
           }
           
           // 暂停连接线绘制以提高性能
           this.jsplumbInstance.setSuspendDrawing(true);
         },
-        drag: dragHandler,
+        drag: (params) => {
+          const now = Date.now();
+          if (now - lastDragTime < 8) return; // 125fps节流，提高响应速度
+          lastDragTime = now;
+
+          if (!startMousePos || !startNodePos) return;
+
+          // 获取当前缩放比例
+          const currentTransform = pan.getTransform();
+          const scale = currentTransform.scale;
+          
+          // 计算鼠标移动距离
+          const deltaX = params.e.clientX - startMousePos.x;
+          const deltaY = params.e.clientY - startMousePos.y;
+          
+          // 修复：根据缩放比例调整移动距离
+          const adjustedDeltaX = deltaX / scale;
+          const adjustedDeltaY = deltaY / scale;
+          
+          // 计算新的节点位置
+          const newLeft = startNodePos.left + adjustedDeltaX;
+          const newTop = startNodePos.top + adjustedDeltaY;
+          
+          // 更新节点位置
+          const node = this.nodePositions.get(nodeID);
+          if (node) {
+            node.left = newLeft;
+            node.top = newTop;
+          }
+          
+          // 手动设置节点位置
+          const element = this.getCachedElement(nodeID);
+          if (element) {
+            element.style.left = newLeft + 'px';
+            element.style.top = newTop + 'px';
+          }
+        },
         stop: (params) => {
           this.auxiliaryLine.isShowXLine = false;
           this.auxiliaryLine.isShowYLine = false;
-          this.changeNodePosition(nodeID, params.pos);
+          
+          if (!startMousePos || !startNodePos) return;
+
+          // 获取当前缩放比例
+          const currentTransform = pan.getTransform();
+          const scale = currentTransform.scale;
+          
+          // 计算鼠标移动距离
+          const deltaX = params.e.clientX - startMousePos.x;
+          const deltaY = params.e.clientY - startMousePos.y;
+          
+          // 修复：根据缩放比例调整最终位置
+          const adjustedDeltaX = deltaX / scale;
+          const adjustedDeltaY = deltaY / scale;
+          
+          // 计算最终节点位置
+          const finalX = startNodePos.left + adjustedDeltaX;
+          const finalY = startNodePos.top + adjustedDeltaY;
+          
+          // 更新最终位置
+          this.changeNodePosition(nodeID, [finalX, finalY]);
 
           // 清理拖动状态
           const element = this.getCachedElement(nodeID);
           if (element) {
             element.classList.remove('dragging');
-            element.style.removeProperty('--drag-x');
-            element.style.removeProperty('--drag-y');
             
             // 清理优化
             if (this.cleanupLayerOptimization) {
@@ -1373,6 +1471,10 @@ export default {
               this.cleanupCSSOptimizations(element);
             }
           }
+
+          // 重置临时变量
+          startMousePos = null;
+          startNodePos = null;
 
           // 使用requestAnimationFrame确保流畅恢复
           requestAnimationFrame(() => {
@@ -1582,6 +1684,19 @@ export default {
       
       // 更新高亮
       this.updateTableHighlights();
+    },
+    
+    // 处理节点列表中的表选择事件
+    handleNodeListTableSelect(tableName, event) {
+      const isSelected = event.target.checked;
+      
+      // 复用现有的表选择逻辑
+      this.handleTableSelect({ tableName, isSelected });
+    },
+    
+    // 检查表是否被选中
+    isTableSelected(tableName) {
+      return this.selectedTables.includes(tableName);
     },
     // 更新表高亮
     updateTableHighlights() {
@@ -1824,7 +1939,7 @@ export default {
 
     // 恢复原始血缘
     restoreOriginalLineage() {
-      // 清除所有勾选状态
+      // 切换回全景血缘模式时清空所有复选框状态
       this.selectedTables = [];
       
       // 使用关键血缘的坐标计算方式重新计算全景节点位置
@@ -2224,9 +2339,13 @@ export default {
 
     // 判断节点是否禁用
     isNodeDisabled(node) {
-      return this.showOnlyCriticalPath &&
-        this.criticalPathNodes.size > 0 &&
-        !this.criticalPathNodes.has(node.name);
+      // 修复：在表级模式下，所有节点都应该可以拖动
+      // 在列级模式下，所有节点也应该可以拖动
+      // 只有在关键路径模式下，才需要禁用非关键路径的节点
+      if (this.showOnlyCriticalPath && this.criticalPathNodes.size > 0) {
+        return !this.criticalPathNodes.has(node.name);
+      }
+      return false; // 默认所有节点都可以拖动
     },
     // 更新关键路径节点集合
     updateCriticalPath() {
@@ -2276,13 +2395,18 @@ export default {
       }
 
       // 更新jsPlumb实例中节点的可拖动状态和可见性
-      this.$nextTick(() => {
-        // 首先设置所有节点的可见性
-        this.json.nodes.forEach(node => {
-          const isInCriticalPath = this.criticalPathNodes.has(node.name);
+        this.$nextTick(() => {
+          // 首先设置所有节点的可见性
+          this.json.nodes.forEach(node => {
+            const isInCriticalPath = this.criticalPathNodes.has(node.name);
 
-          // 设置节点可拖动状态
-          this.jsplumbInstance.setDraggable(node.name, isInCriticalPath);
+            // 修复：设置节点可拖动状态 - 只有在关键路径模式下才根据关键路径状态设置
+            // 否则所有节点都应该可以拖动
+            if (this.showOnlyCriticalPath) {
+              this.jsplumbInstance.setDraggable(node.name, isInCriticalPath);
+            } else {
+              this.jsplumbInstance.setDraggable(node.name, true);
+            }
 
           // 设置节点可见性
           if (isInCriticalPath) {
@@ -2335,7 +2459,7 @@ export default {
         // 关闭关键路径模式
         this.criticalPathNodes.clear();
 
-        // 恢复所有节点的可拖动状态
+        // 修复：恢复所有节点的可拖动状态 - 无论表类型或模式如何
         this.json.nodes.forEach(node => {
           this.jsplumbInstance.setDraggable(node.name, true);
         });
