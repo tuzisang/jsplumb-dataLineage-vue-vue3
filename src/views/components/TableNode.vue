@@ -352,7 +352,9 @@ export default {
   align-items: center;
   z-index: 9995;
   background: #fff;
-  min-width: 200px;
+  min-width: fit-content;
+  width: auto;
+  max-width: none;
   border-radius: 16px;
   box-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.1),
@@ -394,6 +396,9 @@ export default {
       &.table-highlighted {
         font-size: 15px;
         font-weight: bold;
+        box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
+        border-color: #1890ff;
+        animation: table-highlight-glow 2s ease-in-out infinite alternate;
       }
     }
     
@@ -402,12 +407,18 @@ export default {
     }
   }
 
+  &--focused {
+    // 保持原有样式，主画布高亮由Index.scss中的.main-node-focus处理
+  }
+
   .table-node-header {
-    padding: 8px 12px;
+    padding: 8px 48px 8px 32px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
+    width: auto;
+    min-width: fit-content;
     
     .header-left {
       display: flex;
@@ -415,6 +426,8 @@ export default {
       gap: 8px;
       flex: 1;
       min-width: 0;
+      overflow: visible;
+      max-width: none;
     }
     
     .table-checkbox {
@@ -459,9 +472,14 @@ export default {
       font-weight: 500;
       color: #fff;
       user-select: none;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
+      text-overflow: clip;
       white-space: nowrap;
+      word-break: normal;
+      max-width: none;
+      width: auto;
+      min-width: max-content;
+      display: inline-block;
     }
     
     .header-buttons {
@@ -492,6 +510,8 @@ export default {
   .table-node-fields {
     background-color: #fff;
     overflow: visible;
+    width: auto;
+    min-width: fit-content;
     
     .empty-fields-notice {
       padding: 12px;
@@ -502,12 +522,15 @@ export default {
     }
    
     .field {
-      padding: 6px 8px;
+      padding: 6px 48px 6px 32px;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       font-size: 12px;
       cursor: pointer;
       border-bottom: 1px solid #f0f0f0;
       transition: all 0.3s ease;
+      width: auto;
+      min-width: fit-content;
+      white-space: nowrap;
 
       &:last-child {
         border-bottom: none;
@@ -540,10 +563,13 @@ export default {
 
         .field-name {
           flex: 1;
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          min-width: max-content;
+          overflow: visible;
+          text-overflow: clip;
           white-space: nowrap;
+          word-break: normal;
+          max-width: none;
+          display: inline-block;
           
           &--mismatched {
             color: #1976d2;
@@ -598,5 +624,16 @@ export default {
   }
 }
 
+/* 表高亮动画 */
+@keyframes table-highlight-glow {
+  0% {
+    box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
+    border-color: #1890ff;
+  }
+  100% {
+    box-shadow: 0 0 30px rgba(24, 144, 255, 0.8), 0 0 60px rgba(24, 144, 255, 0.6), 0 0 90px rgba(24, 144, 255, 0.4);
+    border-color: #40a9ff;
+  }
+}
 
 </style>

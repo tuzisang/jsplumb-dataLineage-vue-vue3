@@ -97,6 +97,19 @@
         {{ isShowingCriticalLineage ? '显示全景血缘' : '仅显示关键血缘' }}
       </button>
 
+      <!-- 下载图片按钮 -->
+      <DownloadImage 
+        v-if="json.nodes.length > 0"
+        :target-element="'.table-flow'" 
+        :filename="'血缘关系图'"
+        :lineage-level="lineageLevel"
+        :js-plumb-instance="jsplumbInstance"
+        @start="handleDownloadStart"
+        @success="handleDownloadSuccess"
+        @error="handleDownloadError"
+        @refresh-plumb="optimizedJsPlumbRepaint"
+      />
+
       <!-- 历史记录面板 -->
       <div class="history-panel">
         <div class="history-header">
@@ -379,6 +392,7 @@ import { debounce, throttle } from 'lodash-es'
 
 import TableNode from './components/TableNode.vue'
 import MiniMap from './components/MiniMap.vue'
+import DownloadImage from './components/DownloadImage.vue'
 // import LoginDialog from './components/LoginDialog.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
@@ -394,6 +408,7 @@ export default {
   components: {
     TableNode,
     MiniMap,
+    DownloadImage,
     // LoginDialog
   },
   data() {
@@ -1770,6 +1785,9 @@ export default {
         }
         this.generateCriticalLineage();
         this.isShowingCriticalLineage = true;
+        
+        // 切换到关键血缘模式后，取消所有节点的勾选状态
+        this.selectedTables = [];
       }
     },
 
@@ -2067,6 +2085,21 @@ export default {
       if (this.jsplumbInstance.pan && this.jsplumbInstance.pan.moveTo) {
         this.jsplumbInstance.pan.moveTo(targetX, targetY);
       }
+    },
+
+    // 下载相关事件处理
+    handleDownloadStart() {
+      // 可以添加下载开始的提示
+      console.log('开始下载图片...')
+    },
+    
+    handleDownloadSuccess() {
+      this.showToastMessage('图片下载成功！')
+    },
+    
+    handleDownloadError(error) {
+      console.error('下载失败:', error)
+      this.showToastMessage('图片下载失败，请重试')
     },
 
     // 处理复制字段事件
@@ -3028,12 +3061,29 @@ export default {
           console.error("移动画布失败:", error);
         }
 
-        // 7. 添加节点高亮动画 - 初始动画效果
+        // 7. 添加节点高亮动画 - 增强蓝色光晕效果（带过期时间）
         if (nodeElement) {
+          nodeElement.classList.add('main-node-focus');
+          nodeElement.style.animation = 'main-node-focus-glow 1.5s ease-in-out infinite alternate';
+          
+          // 确保节点在最上层
+          nodeElement.style.zIndex = '10000';
+          
+          // 添加初始脉冲动画效果
           nodeElement.classList.add('node-focus-animation');
+          
+          // 清理动画类但保持高亮状态
           setTimeout(() => {
             nodeElement.classList.remove('node-focus-animation');
           }, 1500);
+          
+          // 设置高亮过期时间：5秒后自动清除
+          setTimeout(() => {
+            nodeElement.classList.remove('main-node-focus');
+            nodeElement.style.animation = '';
+            nodeElement.style.zIndex = '';
+            this.focusedNode = null; // 清除聚焦状态
+          }, 5000);
         }
 
         // 在画布中找到对应的列表项并添加动画效果
@@ -3042,7 +3092,7 @@ export default {
           // 确保列表项可见
           listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-          // 添加持久高亮效果
+          // 添加临时高亮效果（带过期时间）
           listItem.classList.add('node-focused');
           listItem.classList.add('node-persistent-focus');
 
@@ -3053,17 +3103,22 @@ export default {
           setTimeout(() => {
             listItem.style.animation = '';
           }, 1500);
+
+          // 设置高亮过期时间：5秒后自动清除
+          setTimeout(() => {
+            listItem.classList.remove('node-focused');
+            listItem.classList.remove('node-persistent-focus');
+          }, 5000);
         }
 
-        // 8. 清理动画类但保持高亮状态
+        // 8. 清理动画类
         setTimeout(() => {
           if (tableFlow) {
             tableFlow.classList.remove('camera-animate');
           }
           this.jsplumbInstance.repaintEverything();
-
-          // 不再自动清除聚焦状态
-          // this.focusedNode = null;
+          
+          // 高亮状态将在5秒后自动清除，由上面的定时器处理
         }, 500);
       } catch (error) {
         console.error("聚焦节点时出错:", error);

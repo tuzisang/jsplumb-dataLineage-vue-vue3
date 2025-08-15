@@ -952,7 +952,7 @@
             color: #1890ff;
             font-weight: 600;
             transform: scale(1.05);
-            box-shadow: 0 3px 10px rgba(24, 144, 255, 0.2);
+            box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
             z-index: 10;
             
             .node-name {
@@ -1619,6 +1619,28 @@
     }
   }
 
+  /* 主画布节点聚焦动画 */
+  @keyframes main-node-focus-glow {
+    0% {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 
+        0 0 30px rgba(24, 144, 255, 0.8), 
+        0 0 60px rgba(24, 144, 255, 0.6), 
+        0 0 90px rgba(24, 144, 255, 0.4),
+        0 8px 25px rgba(0, 0, 0, 0.15);
+      border-color: #1890ff;
+    }
+    100% {
+      transform: translateY(-4px) scale(1.08);
+      box-shadow: 
+        0 0 40px rgba(24, 144, 255, 1), 
+        0 0 80px rgba(24, 144, 255, 0.8), 
+        0 0 120px rgba(24, 144, 255, 0.6),
+        0 12px 35px rgba(0, 0, 0, 0.2);
+      border-color: #40a9ff;
+    }
+  }
+
   .table-node-header {
     /* 减少过渡时间 */
     transition: background-color 0.2s ease;
@@ -1656,12 +1678,25 @@
     }
     50% {
       transform: scale(1.08);
-      box-shadow: 0 4px 16px rgba(24, 144, 255, 0.3);
+      box-shadow: 0 0 30px rgba(24, 144, 255, 0.8), 0 0 60px rgba(24, 144, 255, 0.6), 0 0 90px rgba(24, 144, 255, 0.4);
     }
     100% {
       transform: scale(1);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
+  }
+
+  /* 主画布节点被镜头定位时的增强高亮效果 */
+  .main-node-focus {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 
+      0 0 30px rgba(24, 144, 255, 0.8), 
+      0 0 60px rgba(24, 144, 255, 0.6), 
+      0 0 90px rgba(24, 144, 255, 0.4),
+      0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: #1890ff;
+    z-index: 10000;
+    animation: main-node-focus-glow 1.5s ease-in-out infinite alternate;
   }
   
   /* 优化节点聚焦动画 */
@@ -1718,30 +1753,30 @@
   @keyframes pulse {
     0% {
       transform: scale(1.05);
-      box-shadow: 0 3px 10px rgba(24, 144, 255, 0.2);
+      box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
     }
     50% {
       transform: scale(1.12);
-      box-shadow: 0 5px 15px rgba(24, 144, 255, 0.4);
+      box-shadow: 0 0 40px rgba(24, 144, 255, 0.8), 0 0 80px rgba(24, 144, 255, 0.6), 0 0 120px rgba(24, 144, 255, 0.4);
     }
     100% {
       transform: scale(1.05);
-      box-shadow: 0 3px 10px rgba(24, 144, 255, 0.2);
+      box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
     }
   }
   
   /* 持久高亮的轻微呼吸效果 */
   @keyframes gentle-pulse {
     0% {
-      box-shadow: 0 3px 10px rgba(24, 144, 255, 0.2);
+      box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
       border-color: #1890ff;
     }
     50% {
-      box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+      box-shadow: 0 0 30px rgba(24, 144, 255, 0.8), 0 0 60px rgba(24, 144, 255, 0.6), 0 0 90px rgba(24, 144, 255, 0.4);
       border-color: #40a9ff;
     }
     100% {
-      box-shadow: 0 3px 10px rgba(24, 144, 255, 0.2);
+      box-shadow: 0 0 20px rgba(24, 144, 255, 0.6), 0 0 40px rgba(24, 144, 255, 0.4), 0 0 60px rgba(24, 144, 255, 0.2);
       border-color: #1890ff;
     }
   }

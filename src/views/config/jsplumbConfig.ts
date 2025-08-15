@@ -14,13 +14,13 @@ const commConfig = {
         outlineWidth: 2,
         outlineStroke: "#FFA726"
     },
-    // 更浅橙色连接线样式
+    // 浅灰色连接线样式
     PaintStyle: {
-        stroke: "#FFE0B2", // 更浅的橙色 - 默认连接线
+        stroke: "#BDBDBD", // 浅灰色 - 默认连接线
         strokeWidth: 1.5,
         strokeLinecap: "round"
     },
-    // 更深的红色悬停样式
+    // 红色悬停样式
     HoverPaintStyle: {
         stroke: "#E57373",
         strokeWidth: 2.5
@@ -50,7 +50,7 @@ const commConfig = {
         stroke: "#FF9800",
         strokeWidth: 2
     },
-    // 连接线平滑优化 - 更深的红色
+    // 连接线平滑优化 - 红色
     ConnectorHoverStyle: {
         stroke: "#E57373",
         strokeWidth: 2.5
