@@ -66,13 +66,21 @@
         :id="`${node.name}${minus}${field.name}`"
         :key="`${node.name}${minus}${field.name}`"
         class="field"
-        :class="{ 'field-highlighted': isFieldHighlighted(node.name, field.name) }"
-        @click.stop="handleFieldClick(field.name)"
+        :class="{ 'field-highlighted': isFieldSelected(node.name, field.name) }"
       >
         <div class="field-content">
+          <input 
+            type="checkbox" 
+            class="field-checkbox"
+            :checked="isFieldActuallySelected(node.name, field.name)"
+            @change="handleFieldSelect(field.name, $event)"
+            @click.stop
+          />
           <span 
             class="field-name"
             :class="{ 'field-name--mismatched': hasFieldNameMismatch(field.name) }"
+            @click.stop="copyToClipboard(field.name)"
+            title="点击复制字段名"
           >
             {{ field.name }}
           </span>
@@ -98,10 +106,7 @@ export default {
       type: Object,
       required: true
     },
-    highlightedFields: {
-      type: Array,
-      default: () => []
-    },
+
     isDisabled: {
       type: Boolean,
       default: false
@@ -123,6 +128,14 @@ export default {
       default: () => []
     },
     selectedTables: {  // 新增：选中的表名列表
+      type: Array,
+      default: () => []
+    },
+    selectedFields: { // 新增：选中的字段列表
+      type: Array,
+      default: () => []
+    },
+    highlightedFields: { // 新增：高亮的相关字段列表
       type: Array,
       default: () => []
     },
@@ -180,8 +193,9 @@ export default {
       }
       return {}; // Return empty object if no match found
     },
-    // 判断字段是否被高亮
-    isFieldHighlighted(tableName, fieldName) {
+
+    // 判断字段是否被高亮显示
+    isFieldSelected(tableName, fieldName) {
       if (!this.highlightedFields || !Array.isArray(this.highlightedFields)) {
         return false;
       }
@@ -189,6 +203,30 @@ export default {
       return this.highlightedFields.some(field => 
         field.tableName === tableName && field.fieldName === fieldName
       );
+    },
+
+    // 判断字段是否被实际选中（用于复选框状态）
+    isFieldActuallySelected(tableName, fieldName) {
+      if (!this.selectedFields || !Array.isArray(this.selectedFields)) {
+        return false;
+      }
+      
+      return this.selectedFields.some(field => 
+        field.tableName === tableName && field.fieldName === fieldName
+      );
+    },
+    // 处理字段选择事件
+    handleFieldSelect(fieldName, event) {
+      if (this.isDisabled) {
+        event.stopPropagation();
+        event.preventDefault();
+        return;
+      }
+      this.$emit('field-select', {
+        tableName: this.node.name,
+        fieldName: fieldName,
+        isSelected: event.target.checked
+      });
     },
     // 处理鼠标按下事件
     handleMouseDown(event) {
@@ -248,20 +286,7 @@ export default {
       }
       document.body.removeChild(textArea);
     },
-    // 处理字段点击事件
-    handleFieldClick(fieldName, event) {
-      if (this.isDisabled) {
-        if (event) {
-          event.stopPropagation();
-          event.preventDefault();
-        }
-        return;
-      }
-      this.$emit('field-click', {
-        tableName: this.node.name,
-        fieldName: fieldName
-      });
-    },
+
     // 处理复制字段事件
     handleCopyFields(event) {
       if (this.isDisabled) {

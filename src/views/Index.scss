@@ -1172,35 +1172,35 @@ $desktop: 1024px;
       }
     }
   
-    // 作者署名样式
+    // 作者署名样式 - 紧贴页面底部
     .author-signature {
       position: fixed;
-      bottom: calc(20px + 150px + 16px); /* 小地图bottom + 小地图高度 + 间距 */
+      bottom: 12px; /* 紧贴页面底部 */
       right: $spacing-lg;
-      padding: 8px 12px;
-      background-color: rgba(255, 255, 255, 0.9);
-      border-radius: 8px;
+      padding: 6px 10px;
+      background-color: rgba(255, 255, 255, 0.85);
+      border-radius: 6px;
       box-shadow: $shadow-sm;
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
       z-index: $z-index-panel;
       border: 1px solid #e6eaf0;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(6px);
       
       span {
         font-weight: 500;
       }
       
       &:hover {
-        background-color: rgba(255, 255, 255, 1);
+        background-color: rgba(255, 255, 255, 0.95);
         box-shadow: $shadow-md;
       }
       
       @media (max-width: $tablet) {
-        bottom: calc(20px + 150px + 12px);
+        bottom: 8px;
         right: $spacing-md;
-        font-size: 11px;
-        padding: 6px 10px;
+        font-size: 10px;
+        padding: 4px 8px;
       }
       
       @media (max-width: $mobile) {

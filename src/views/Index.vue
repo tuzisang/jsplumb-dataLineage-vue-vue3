@@ -67,14 +67,14 @@
 
     <!-- 镜头定位按钮 -->
     <div
-      v-if="showOnlyCriticalPath && ((lineageLevel === 'column' && highlightedFields.length > 0) || (lineageLevel === 'table' && highlightedTables.length > 0))"
-      class="camera-controls">
-      <div class="camera-info">
-        <span class="field-counter" v-if="lineageLevel === 'column'">{{ currentFieldIndex + 1 }} / {{
-          highlightedFields.length }}</span>
-        <span class="field-counter" v-if="lineageLevel === 'table'">{{ currentTableIndex + 1 }} / {{
-          highlightedTables.length }}</span>
-      </div>
+      v-if="showOnlyCriticalPath && ((lineageLevel === 'column' && selectedFields.length > 0) || (lineageLevel === 'table' && highlightedTables.length > 0))"
+        class="camera-controls">
+        <div class="camera-info">
+          <span class="field-counter" v-if="lineageLevel === 'column'">{{ currentFieldIndex + 1 }} / {{
+            selectedFields.length }}</span>
+          <span class="field-counter" v-if="lineageLevel === 'table'">{{ currentTableIndex + 1 }} / {{
+            highlightedTables.length }}</span>
+        </div>
       <button class="camera-button" @click="lineageLevel === 'column' ? focusNextField() : focusNextTable()"
         :title="lineageLevel === 'column' ? '移动到下一个相关字段' : '移动到下一个相关表'">
         <i class="camera-icon">🎯</i>
@@ -91,8 +91,11 @@
 
       <!-- 仅显示关键血缘/显示全景血缘按钮 -->
       <button class="batch-action-btn" @click="showCriticalLineage" :class="{ 'active': isShowingCriticalLineage }" 
-              :disabled="!isShowingCriticalLineage && selectedTables.length === 0" 
-              :title="isShowingCriticalLineage ? '返回显示所有表的全景血缘' : (selectedTables.length === 0 ? '请先勾选要显示的表' : '显示选中表的关键血缘')">
+              :disabled="!isShowingCriticalLineage && (lineageLevel === 'table' ? selectedTables.length === 0 : selectedFields.length === 0)" 
+              :title="isShowingCriticalLineage ? '返回显示所有表的全景血缘' : 
+                (lineageLevel === 'table' ? 
+                  (selectedTables.length === 0 ? '请先勾选要显示的表' : '显示选中表的关键血缘') : 
+                  (selectedFields.length === 0 ? '请先勾选要显示的字段' : '显示选中字段的关键血缘'))">
         <i class="filter-icon">⚡</i>
         {{ isShowingCriticalLineage ? '显示全景血缘' : '仅显示关键血缘' }}
       </button>
@@ -163,11 +166,11 @@
       </div>
       <div id="table-flow" class="table-flow">
         <TableNode v-for="node in computedVisibleNodes" :key="node.name" :node="node"
-          :highlightedFields="highlightedFields" :highlightedTables="highlightedTables"
-          :selectedTables="selectedTables" :isDisabled="isNodeDisabled(node)" :edges="json.edges" 
+        :highlightedTables="highlightedTables"
+          :selectedTables="selectedTables" :selectedFields="selectedFields" :highlightedFields="highlightedFields" :isDisabled="isNodeDisabled(node)" :edges="json.edges" 
           :isTableMode="lineageLevel === 'table'" :minus="minus" :focusedNode="focusedNode" 
-          @hide-node="toggleNodeVisibility" @copy-fields="copyFields" @field-click="handleFieldClick" 
-          @table-name-click="handleTableNameClick" @table-select="handleTableSelect" />
+          @hide-node="toggleNodeVisibility" @copy-fields="copyFields" 
+          @table-name-click="handleTableNameClick" @table-select="handleTableSelect" @field-select="handleFieldSelect" />
 
         <!-- 辅助线 -->
         <div v-show="auxiliaryLine.isShowXLine" class="auxiliary-line auxiliary-line--x" :style="{
@@ -346,6 +349,13 @@
               <div v-show="!isGroupCollapsed(type)">
                 <div v-for="field in fields" :key="field.tableName + '-' + field.fieldName" class="node-list-item"
                   @click="focusFieldFromList(field)">
+                  <input 
+                    type="checkbox" 
+                    class="node-checkbox"
+                    :checked="isFieldSelected(field.tableName, field.fieldName)"
+                    @change="handleNodeListFieldSelect(field.tableName, field.fieldName, $event)"
+                    @click.stop
+                  />
                   <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(field.tableType) }"></span>
                   <span class="node-name">{{ field.tableName }}.{{ field.fieldName }}</span>
                   <span class="node-fields-count">{{ field.refCount }}</span>
@@ -356,6 +366,13 @@
           <template v-else>
             <div v-for="field in filteredFieldList" :key="field.tableName + '-' + field.fieldName"
               class="node-list-item" @click="focusFieldFromList(field)">
+              <input 
+                type="checkbox" 
+                class="node-checkbox"
+                :checked="isFieldSelected(field.tableName, field.fieldName)"
+                @change="handleNodeListFieldSelect(field.tableName, field.fieldName, $event)"
+                @click.stop
+              />
               <span class="node-type-indicator" :style="{ backgroundColor: getTableColor(field.tableType) }"></span>
               <span class="node-name">{{ field.tableName }}.{{ field.fieldName }}</span>
               <span class="node-fields-count">{{ field.refCount }}</span>
@@ -431,7 +448,6 @@ export default {
       searchQuery: '',
       showDropdown: false,
       filteredFields: [],
-      highlightedFields: [],
       showToast: false,
       toastMessage: '',
       toastTimer: null,
@@ -464,6 +480,8 @@ export default {
       isNodeListMinimized: false, // 节点列表最小化状态
       highlightedTables: [], // 新增：存储高亮的表名
       selectedTables: [], // 新增：存储选中的表名
+      selectedFields: [], // 新增：存储选中的字段
+      highlightedFields: [], // 新增：存储高亮的相关字段（包含选中字段及其上下游链路）
       listMode: 'table', // 新增：表/字段切换
       // 表类型筛选相关
       showTypeFilter: false, // 是否显示类型筛选
@@ -1668,10 +1686,89 @@ export default {
         this.showDropdown = false;
       }
     },
-    // 处理字段点击事件
-    handleFieldClick(fieldInfo) {
-      this.highlightFieldLineage(fieldInfo.tableName, fieldInfo.fieldName);
-      this.copyToClipboard(fieldInfo.fieldName, `字段名 "${fieldInfo.fieldName}" 已复制到剪贴板`);
+    // 处理字段点击事件 - 复用复选框选择逻辑
+
+    
+    // 处理字段选择事件
+    handleFieldSelect(fieldInfo) {
+      const { tableName, fieldName, isSelected } = fieldInfo;
+      
+      if (isSelected) {
+        // 如果选中，添加到selectedFields（避免重复）
+        const exists = this.selectedFields.some(
+          field => field.tableName === tableName && field.fieldName === fieldName
+        );
+        if (!exists) {
+          this.selectedFields.push({ tableName, fieldName });
+        }
+      } else {
+        // 如果取消选中，从selectedFields移除
+        this.selectedFields = this.selectedFields.filter(
+          field => !(field.tableName === tableName && field.fieldName === fieldName)
+        );
+      }
+      
+      // 更新高亮字段（复用现有逻辑）
+      this.updateFieldHighlights();
+    },
+    
+    // 更新字段高亮（基于选中的字段）
+    updateFieldHighlights() {
+      if (this.lineageLevel === 'column') {
+        // 如果没有选中的字段，清空高亮
+        if (this.selectedFields.length === 0) {
+          this.highlightedFields = [];
+          this.highlightConnections([]);
+          return;
+        }
+
+        // 重新计算所有选中字段的完整高亮关系
+        const allRelatedFields = [];
+        const visited = new Set();
+        
+        this.selectedFields.forEach(field => {
+          // 找到与该字段相关的所有字段（上下游完整链路）
+          const traverse = (currentTable, currentField) => {
+            const key = `${currentTable}-${currentField}`;
+            if (visited.has(key)) return;
+            visited.add(key);
+            
+            allRelatedFields.push({
+              tableName: currentTable,
+              fieldName: currentField
+            });
+            
+            // 查找上游字段
+            this.json.edges.forEach(edge => {
+              if (edge.to.name === currentTable && edge.to.field === currentField) {
+                traverse(edge.from.name, edge.from.field);
+              }
+            });
+            
+            // 查找下游字段
+            this.json.edges.forEach(edge => {
+              if (edge.from.name === currentTable && edge.from.field === currentField) {
+                traverse(edge.to.name, edge.to.field);
+              }
+            });
+          };
+          
+          traverse(field.tableName, field.fieldName);
+        });
+        
+        // 更新高亮字段集合（用于界面显示）
+        this.highlightedFields = allRelatedFields;
+        
+        // 如果开启了仅显示关键路径，更新关键路径
+        if (this.showOnlyCriticalPath) {
+          this.updateCriticalPath();
+        }
+        
+        // 高亮相关的连接线
+        this.$nextTick(() => {
+          this.highlightConnections(allRelatedFields);
+        });
+      }
     },
     // 处理表名点击事件
     handleTableNameClick(tableInfo) {
@@ -1716,9 +1813,25 @@ export default {
       this.handleTableSelect({ tableName, isSelected });
     },
     
+    // 处理字段列表中的字段选择事件
+    handleNodeListFieldSelect(tableName, fieldName, event) {
+      const isSelected = event.target.checked;
+      
+      // 复用字段选择逻辑
+      this.handleFieldSelect({ tableName, fieldName, isSelected });
+    },
+    
     // 检查表是否被选中
     isTableSelected(tableName) {
       return this.selectedTables.includes(tableName);
+    },
+    
+    // 检查字段是否被选中
+    isFieldSelected(tableName, fieldName) {
+      // 检查字段是否在高亮字段集合中（包含选中字段及其上下游链路）
+      return this.highlightedFields.some(
+        field => field.tableName === tableName && field.fieldName === fieldName
+      );
     },
     // 更新表高亮
     updateTableHighlights() {
@@ -1785,21 +1898,55 @@ export default {
         this.restoreOriginalLineage();
         this.isShowingCriticalLineage = false;
       } else {
-        // 显示关键血缘 - 需要勾选表
-        if (this.selectedTables.length === 0) {
-          this.showToastMessage('请先勾选要显示的表');
-          return;
+        // 显示关键血缘 - 根据模式检查选中项
+        if (this.lineageLevel === 'table') {
+          if (this.selectedTables.length === 0) {
+            this.showToastMessage('请先勾选要显示的表');
+            return;
+          }
+        } else {
+          if (this.selectedFields.length === 0) {
+            this.showToastMessage('请先勾选要显示的字段');
+            return;
+          }
         }
+        
         this.generateCriticalLineage();
         this.isShowingCriticalLineage = true;
         
-        // 切换到关键血缘模式后，取消所有节点的勾选状态
+        // 切换到关键血缘模式后，清空所有勾选状态和高亮状态
         this.selectedTables = [];
+        this.selectedFields = [];
+        this.highlightedTables = [];
+        this.highlightedFields = [];
+        
+        // 清除高亮样式
+        this.clearAllHighlights();
+      }
+    },
+
+    // 清除所有高亮状态
+    clearAllHighlights() {
+      if (this.jsplumbInstance) {
+        const allConnections = this.jsplumbInstance.getAllConnections();
+        allConnections.forEach(conn => {
+          conn.removeClass('highlighted-connection');
+          conn.removeClass('critical-path-highlight');
+        });
       }
     },
 
     // 生成关键血缘
     generateCriticalLineage() {
+      if (this.lineageLevel === 'table') {
+        this.generateTableCriticalLineage();
+      } else {
+        this.generateColumnCriticalLineage();
+      }
+    },
+
+    // 表级关键血缘图生成
+    generateTableCriticalLineage() {
       // 保存原始数据
       if (!this.isShowingCriticalLineage) {
         this.originalNodes = [...this.json.nodes];
@@ -1861,7 +2008,102 @@ export default {
 
       // 重新渲染血缘图
       this.$nextTick(() => {
-        console.log('重新渲染血缘图，当前模式:', this.isShowingCriticalLineage ? '关键血缘' : '全景血缘');
+        console.log('重新渲染表级关键血缘图，当前模式:', this.isShowingCriticalLineage ? '关键血缘' : '全景血缘');
+        this.reRenderLineage();
+      });
+    },
+
+    // 列级关键血缘图生成（支持多选字段）
+    generateColumnCriticalLineage() {
+      // 保存原始数据
+      if (!this.isShowingCriticalLineage) {
+        this.originalNodes = [...this.json.nodes];
+        this.originalEdges = [...this.json.edges];
+      }
+
+      // 收集所有关键节点和字段
+      const criticalNodes = new Set();
+      const criticalFields = new Set(); // 精确追踪关键字段
+
+      // 递归查找上游字段和表
+      const findUpstream = (currentTable, currentField, visited = new Set()) => {
+        const key = `${currentTable}-${currentField}`;
+        if (visited.has(key)) return;
+        visited.add(key);
+        criticalNodes.add(currentTable);
+        criticalFields.add(key);
+
+        this.originalEdges.forEach(edge => {
+          if (edge.to.name === currentTable && edge.to.field === currentField) {
+            const sourceTable = edge.from.name;
+            const sourceField = edge.from.field;
+            criticalNodes.add(sourceTable);
+            criticalFields.add(`${sourceTable}-${sourceField}`);
+            findUpstream(sourceTable, sourceField, visited);
+          }
+        });
+      };
+
+      // 递归查找下游字段和表
+      const findDownstream = (currentTable, currentField, visited = new Set()) => {
+        const key = `${currentTable}-${currentField}`;
+        if (visited.has(key)) return;
+        visited.add(key);
+        criticalNodes.add(currentTable);
+        criticalFields.add(key);
+
+        this.originalEdges.forEach(edge => {
+          if (edge.from.name === currentTable && edge.from.field === currentField) {
+            const targetTable = edge.to.name;
+            const targetField = edge.to.field;
+            criticalNodes.add(targetTable);
+            criticalFields.add(`${targetTable}-${targetField}`);
+            findDownstream(targetTable, targetField, visited);
+          }
+        });
+      };
+
+      // 为每个选中的字段查找完整链路
+      this.selectedFields.forEach(field => {
+        findUpstream(field.tableName, field.fieldName);
+        findDownstream(field.tableName, field.fieldName);
+      });
+
+      // 精确过滤：只保留关键节点中的相关字段
+      const filteredNodes = this.originalNodes.filter(node => {
+        if (!criticalNodes.has(node.name)) return false;
+        
+        // 只保留链路中的相关字段
+        const relevantFields = node.fields.filter(field => 
+          criticalFields.has(`${node.name}-${field.name}`)
+        );
+        
+        // 更新节点字段列表，只保留相关字段
+        if (relevantFields.length > 0) {
+          node.fields = relevantFields;
+          return true;
+        }
+        
+        return false;
+      });
+      
+      // 精确过滤边：只保留关键字段之间的连接
+      const filteredEdges = this.originalEdges.filter(edge => {
+        const sourceKey = `${edge.from.name}-${edge.from.field}`;
+        const targetKey = `${edge.to.name}-${edge.to.field}`;
+        return criticalFields.has(sourceKey) && criticalFields.has(targetKey);
+      });
+
+      // 重新计算坐标
+      const recalculatedNodes = this.recalculateNodeCoordinates(filteredNodes, filteredEdges);
+
+      // 更新数据
+      this.json.nodes = recalculatedNodes;
+      this.json.edges = filteredEdges;
+
+      // 重新渲染血缘图
+      this.$nextTick(() => {
+        console.log('重新渲染列级关键血缘图，当前模式:', this.isShowingCriticalLineage ? '关键血缘' : '全景血缘');
         this.reRenderLineage();
       });
     },
@@ -2121,9 +2363,6 @@ export default {
       // 找到所有相关的字段
       const relatedFields = this.findRelatedFields(tableName, fieldName);
 
-      // 更新高亮字段列表
-      this.highlightedFields = relatedFields;
-
       // 如果开启了仅显示关键路径，更新关键路径
       if (this.showOnlyCriticalPath) {
         this.updateCriticalPath();
@@ -2132,10 +2371,6 @@ export default {
       // 高亮相关的连接线
       this.$nextTick(() => {
         this.highlightConnections(relatedFields);
-
-        // 移除这里的selectField调用，防止循环调用
-        // const field = { tableName, fieldName };
-        // this.selectField(field);
       });
     },
     // 查找相关字段
@@ -2173,7 +2408,7 @@ export default {
     },
     // 高亮连接线 - 修复关键路径模式下的可见性问题
     highlightConnections(relatedFields) {
-      if (!this.jsplumbInstance || this.lineageLevel === 'table' || !relatedFields || relatedFields.length === 0) return;
+      if (!this.jsplumbInstance || this.lineageLevel === 'table') return;
 
       const allConnections = this.jsplumbInstance.getAllConnections();
 
@@ -2182,6 +2417,12 @@ export default {
         conn.setPaintStyle(this.commConfig.PaintStyle);
         conn.removeClass('critical-path-highlight');
       });
+
+      // 如果没有相关字段，只执行清除操作后返回
+      if (!relatedFields || relatedFields.length === 0) {
+        this.jsplumbInstance.repaintEverything();
+        return;
+      }
 
       // 收集所有相关表的节点名
       const relatedTableNames = new Set(relatedFields.map(f => f.tableName));
@@ -2392,22 +2633,62 @@ export default {
       this.criticalPathNodes.clear();
 
       if (this.lineageLevel === 'table') {
-        // 表级模式：如果有高亮的表，则只显示高亮的表及其相关表
+        // 表级模式：如果有高亮的表，则显示完整链路的所有相关表
         if (this.highlightedTables.length > 0) {
+          // 使用与关键血缘相同的逻辑，收集完整链路
+          const criticalNodes = new Set();
+          
+          // 递归查找上游表
+          const findUpstream = (currentTable, visited = new Set()) => {
+            if (visited.has(currentTable)) return;
+            visited.add(currentTable);
+            criticalNodes.add(currentTable);
+
+            this.json.edges.forEach(edge => {
+              if (edge.to.name === currentTable) {
+                const sourceTable = edge.from.name;
+                criticalNodes.add(sourceTable);
+                findUpstream(sourceTable, visited);
+              }
+            });
+          };
+
+          // 递归查找下游表
+          const findDownstream = (currentTable, visited = new Set()) => {
+            if (visited.has(currentTable)) return;
+            visited.add(currentTable);
+            criticalNodes.add(currentTable);
+
+            this.json.edges.forEach(edge => {
+              if (edge.from.name === currentTable) {
+                const targetTable = edge.to.name;
+                criticalNodes.add(targetTable);
+                findDownstream(targetTable, visited);
+              }
+            });
+          };
+
+          // 为每个高亮的表查找完整链路
           this.highlightedTables.forEach(tableName => {
-            this.criticalPathNodes.add(tableName);
+            findUpstream(tableName);
+            findDownstream(tableName);
+          });
+
+          // 将所有关键节点添加到criticalPathNodes
+          criticalNodes.forEach(node => {
+            this.criticalPathNodes.add(node);
           });
         }
       } else {
-        // 列级模式：如果没有高亮字段，不需要继续处理
+        // 列级模式：基于highlightedFields而非仅selectedFields
         if (this.highlightedFields.length === 0) return;
 
-        // 获取所有相关的表
+        // 获取所有相关的表（基于高亮字段的完整链路）
         this.highlightedFields.forEach(field => {
           this.criticalPathNodes.add(field.tableName);
         });
 
-        // 递归查找上游节点和边
+        // 递归查找上游节点和边（基于完整链路）
         const findUpstream = (tableName, fieldName) => {
           this.json.edges.forEach(edge => {
             if (edge.to.name === tableName && edge.to.field === fieldName) {
@@ -2417,7 +2698,7 @@ export default {
           });
         };
 
-        // 递归查找下游节点和边
+        // 递归查找下游节点和边（基于完整链路）
         const findDownstream = (tableName, fieldName) => {
           this.json.edges.forEach(edge => {
             if (edge.from.name === tableName && edge.from.field === fieldName) {
@@ -2427,7 +2708,7 @@ export default {
           });
         };
 
-        // 对每个高亮字段查找其上下游
+        // 对每个高亮字段查找其上下游（包含选中字段及其上下游链路）
         this.highlightedFields.forEach(field => {
           findUpstream(field.tableName, field.fieldName);
           findDownstream(field.tableName, field.fieldName);
@@ -2477,7 +2758,7 @@ export default {
         if (this.lineageLevel === 'table') {
           this.highlightTableConnections(Array.from(this.criticalPathNodes));
         } else {
-          this.highlightConnections(this.highlightedFields);
+          this.highlightConnections(this.selectedFields);
         }
 
         // 重绘所有连接
@@ -2491,7 +2772,7 @@ export default {
         if (this.lineageLevel === 'table' && this.highlightedTables.length > 0) {
           this.updateCriticalPath();
           this.resetTableIndex(); // 重置表索引
-        } else if (this.lineageLevel === 'column' && this.highlightedFields.length > 0) {
+        } else if (this.lineageLevel === 'column' && this.selectedFields.length > 0) {
           this.updateCriticalPath();
           this.resetFieldIndex(); // 重置字段索引
         }
@@ -2523,14 +2804,14 @@ export default {
         // 根据模式重新应用高亮
         if (this.lineageLevel === 'table' && this.highlightedTables.length > 0) {
           this.highlightTableConnections(this.highlightedTables);
-        } else if (this.lineageLevel === 'column' && this.highlightedFields.length > 0) {
-          this.highlightConnections(this.highlightedFields);
+        } else if (this.lineageLevel === 'column' && this.selectedFields.length > 0) {
+          this.highlightConnections(this.selectedFields);
         }
       });
     },
     // 聚焦到下一个字段 - 优化版本
     async focusNextField() {
-      if (!this.highlightedFields.length) return;
+      if (!this.selectedFields.length) return;
 
       // 添加按钮点击动画效果
       const cameraButton = this.getCachedQuerySelector('.camera-button');
@@ -2542,8 +2823,8 @@ export default {
       }
 
       // 更新当前字段索引
-      this.currentFieldIndex = (this.currentFieldIndex + 1) % this.highlightedFields.length;
-      const field = this.highlightedFields[this.currentFieldIndex];
+      this.currentFieldIndex = (this.currentFieldIndex + 1) % this.selectedFields.length;
+      const field = this.selectedFields[this.currentFieldIndex];
 
       // 触发计数器动画
       const counterElement = this.getCachedQuerySelector('.field-counter');
@@ -3857,7 +4138,7 @@ export default {
 
     // CSS 优化方法
     // 初始化动态样式表
-    // 调整作者信息位置，避免与小地图重叠
+    // 调整作者信息位置 - 紧贴页面底部，避免与小地图重叠
     adjustAuthorPosition() {
       this.$nextTick(() => {
         const authorSignature = document.querySelector('.author-signature');
@@ -3867,15 +4148,17 @@ export default {
           // 获取小地图的实际尺寸和位置
           const miniMapRect = miniMapContainer.getBoundingClientRect();
           const miniMapWidth = miniMapRect.width;
-          const miniMapHeight = miniMapRect.height;
           
-          // 计算作者信息的理想位置
-          const rightPosition = Math.max(16, miniMapWidth + 30);
-          const bottomPosition = Math.max(190, miniMapHeight + 20 + 16);
+          // 计算作者信息与小地图的水平间距
+          const rightPosition = Math.max(16, miniMapWidth + 20);
           
-          // 设置作者信息位置
+          // 设置作者信息位置 - 紧贴底部
           authorSignature.style.right = rightPosition + 'px';
-          authorSignature.style.bottom = bottomPosition + 'px';
+          authorSignature.style.bottom = '12px'; // 固定紧贴底部
+        } else if (authorSignature) {
+          // 如果没有小地图，直接紧贴底部右侧
+          authorSignature.style.right = '16px';
+          authorSignature.style.bottom = '12px';
         }
       });
     },
@@ -4062,8 +4345,9 @@ export default {
         this.cleanupCanvas();
 
         // 清除所有高亮状态
-        this.highlightedFields = [];
         this.highlightedTables = [];
+        this.selectedFields = [];
+        this.selectedTables = [];
 
         // 更新数据
         this.json.nodes = data.nodes;
