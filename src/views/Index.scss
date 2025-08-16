@@ -1,3 +1,28 @@
+// 统一设计系统变量
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+$shadow-md: 0 4px 6px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+$shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.12), 0 4px 6px rgba(0, 0, 0, 0.08);
+
+$z-index-base: 1;
+$z-index-node: 100;
+$z-index-panel: 200;
+$z-index-overlay: 1000;
+$z-index-dropdown: 300;
+$z-index-modal: 400;
+$z-index-toast: 500;
+$z-index-loading: 600;
+
+// 响应式断点
+$mobile: 480px;
+$tablet: 768px;
+$desktop: 1024px;
+
 .app-container {
     position: relative;
     width: 100%;
@@ -7,12 +32,27 @@
     .sql-container {
       position: fixed;
       left: 50%;
-      bottom: 32px;
+      bottom: $spacing-lg;
       transform: translateX(-50%);
-      z-index: 10001;
+      z-index: $z-index-panel;
       width: 420px;
       min-width: 320px;
       max-width: 95vw;
+      
+      @media (max-width: $tablet) {
+        width: calc(100vw - #{$spacing-lg * 2});
+        left: $spacing-lg;
+        right: $spacing-lg;
+        transform: none;
+        bottom: $spacing-md;
+      }
+      
+      @media (max-width: $mobile) {
+        width: calc(100vw - #{$spacing-sm * 2});
+        left: $spacing-sm;
+        right: $spacing-sm;
+        bottom: $spacing-sm;
+      }
       background: #fff;
       border-radius: 12px;
       border: 1px solid #e6e6e6;
@@ -380,21 +420,54 @@
       width: 100%;
       height: 100vh;
       overflow: auto;
+      padding: $spacing-lg;
+      box-sizing: border-box;
+      
+      @media (max-width: $tablet) {
+        padding: $spacing-md;
+      }
+      
+      @media (max-width: $mobile) {
+        padding: $spacing-sm;
+      }
       
       .table-flow {
         position: relative;
-        min-width: 100%;
-        min-height: 100%;
+        min-width: calc(100% - #{$spacing-lg * 2});
+        min-height: calc(100% - #{$spacing-lg * 2});
+        border-radius: 12px;
+        background: #fff;
+        
+        @media (max-width: $tablet) {
+          min-width: calc(100% - #{$spacing-md * 2});
+          min-height: calc(100% - #{$spacing-md * 2});
+        }
+        
+        @media (max-width: $mobile) {
+          min-width: calc(100% - #{$spacing-sm * 2});
+          min-height: calc(100% - #{$spacing-sm * 2});
+        }
       }
     }
   
     .advanced-search {
       position: fixed;
-      top: 20px;
+      top: $spacing-lg;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 10000;
+      z-index: $z-index-overlay;
       width: 400px;
+      
+      @media (max-width: $tablet) {
+        top: $spacing-md;
+        width: 320px;
+      }
+      
+      @media (max-width: $mobile) {
+        top: $spacing-sm;
+        width: calc(100vw - #{$spacing-sm * 2});
+        max-width: 320px;
+      }
       
       .search-panel {
         .search-header {
@@ -557,18 +630,28 @@
     // 表类型图例样式
     .table-type-legend {
       position: fixed;
-      right: 20px;
-      bottom: 150px;
+      right: $spacing-lg;
+      bottom: 180px;
       background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
       border-radius: 12px;
-      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
-      padding: 16px 18px 14px 18px;
-      z-index: 1000;
+      box-shadow: $shadow-sm;
+      padding: $spacing-md $spacing-lg;
+      z-index: $z-index-panel;
       border: 1.5px solid #e6eaf0;
-      border-right: none;
-      border-top-right-radius: 0;
-      border-bottom-right-radius: 0;
       transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      
+      @media (max-width: $tablet) {
+        right: $spacing-md;
+        bottom: 120px;
+        padding: $spacing-sm $spacing-md;
+      }
+      
+      @media (max-width: $mobile) {
+        right: $spacing-sm;
+        bottom: 80px;
+        padding: $spacing-sm;
+        font-size: 12px;
+      }
       
       &:hover {
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -614,12 +697,23 @@
       transform: translate(-50%, -50%);
       display: flex;
       align-items: center;
-      gap: 10px;
-      z-index: 10001;
+      gap: $spacing-sm;
+      z-index: $z-index-panel;
       background: white;
-      padding: 8px;
+      padding: $spacing-sm;
       border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: $shadow-sm;
+      
+      @media (max-width: $tablet) {
+        left: 50%;
+        top: 60%;
+      }
+      
+      @media (max-width: $mobile) {
+        left: 50%;
+        top: 70%;
+        padding: 6px;
+      }
   
       .camera-info {
         .field-counter {
@@ -671,12 +765,22 @@
     // 批量操作按钮样式
     .batch-actions {
       position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 10001;
+      top: $spacing-lg;
+      right: $spacing-lg;
+      z-index: $z-index-panel;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: $spacing-sm;
+      
+      @media (max-width: $tablet) {
+        top: $spacing-md;
+        right: $spacing-md;
+      }
+      
+      @media (max-width: $mobile) {
+        top: $spacing-sm;
+        right: $spacing-sm;
+      }
       
       .batch-action-btn {
           display: flex;
@@ -761,17 +865,32 @@
     // 节点列表面板样式
   .node-list-panel {
     position: fixed;
-    left: 24px;
-    top: 24px;
-    bottom: 24px;
+    left: $spacing-lg;
+    top: $spacing-lg;
+    bottom: $spacing-lg;
     height: auto;
     min-width: 40px;
     max-width: 520px;
     background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
     border-radius: 14px;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: $shadow-md;
     border: 1.5px solid #e6eaf0;
-    z-index: 10001;
+    z-index: $z-index-panel;
+    
+    @media (max-width: $tablet) {
+      left: $spacing-md;
+      top: $spacing-md;
+      bottom: $spacing-md;
+      width: 280px;
+    }
+    
+    @media (max-width: $mobile) {
+      left: $spacing-sm;
+      top: $spacing-sm;
+      bottom: $spacing-sm;
+      width: calc(100vw - #{$spacing-sm * 2});
+      max-width: none;
+    }
     display: flex;
     flex-direction: column;
     font-size: 13px;
@@ -1032,18 +1151,23 @@
       .resize-handle {
         position: absolute;
         top: 0;
-        right: -7px;
-        width: 14px;
+        right: -4px;
+        width: 8px;
         height: 100%;
         cursor: ew-resize;
-        border-radius: 8px;
+        border-radius: 4px;
         background: none;
-        transition: background 0.2s;
+        transition: background 0.2s, width 0.2s;
+        
         &:hover {
-          background: rgba(24, 144, 255, 0.10);
+          background: rgba(24, 144, 255, 0.15);
+          width: 12px;
+          right: -6px;
         }
         &:active {
-          background: rgba(24, 144, 255, 0.18);
+          background: rgba(24, 144, 255, 0.25);
+          width: 14px;
+          right: -7px;
         }
       }
     }
@@ -1051,15 +1175,17 @@
     // 作者署名样式
     .author-signature {
       position: fixed;
-      bottom: 20px;
-      right: 240px;
+      bottom: calc(20px + 150px + 16px); /* 小地图bottom + 小地图高度 + 间距 */
+      right: $spacing-lg;
       padding: 8px 12px;
       background-color: rgba(255, 255, 255, 0.9);
-      border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      font-size: 14px;
+      border-radius: 8px;
+      box-shadow: $shadow-sm;
+      font-size: 12px;
       color: #666;
-      z-index: 1000;
+      z-index: $z-index-panel;
+      border: 1px solid #e6eaf0;
+      backdrop-filter: blur(8px);
       
       span {
         font-weight: 500;
@@ -1067,7 +1193,18 @@
       
       &:hover {
         background-color: rgba(255, 255, 255, 1);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: $shadow-md;
+      }
+      
+      @media (max-width: $tablet) {
+        bottom: calc(20px + 150px + 12px);
+        right: $spacing-md;
+        font-size: 11px;
+        padding: 6px 10px;
+      }
+      
+      @media (max-width: $mobile) {
+        display: none; /* 移动端隐藏作者信息 */
       }
     }
   
@@ -1844,17 +1981,27 @@
   /* 作者署名样式 */
   .author-signature {
     position: fixed;
-    bottom: 20px;
-    right: 240px;
-    padding: 8px 12px;
+    bottom: $spacing-lg;
+    right: $spacing-lg;
+    padding: $spacing-sm $spacing-md;
     background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: $shadow-sm;
     font-size: 14px;
     color: #666;
-    z-index: 1000;
+    z-index: $z-index-panel;
     min-width: 120px;
     text-align: center;
+    
+    @media (max-width: $tablet) {
+      bottom: $spacing-md;
+      right: $spacing-md;
+      font-size: 12px;
+    }
+    
+    @media (max-width: $mobile) {
+      display: none; /* 移动端隐藏作者署名 */
+    }
     
     span {
       font-weight: 500;
@@ -1891,18 +2038,28 @@
   
   .table-type-legend {
     position: fixed;
-    right: 0;
-    bottom: 150px;
+    right: $spacing-lg;
+    bottom: 180px;
     background: linear-gradient(135deg, #fafdff 0%, #f3f8ff 100%);
     border-radius: 12px;
-    box-shadow: 0 4px 18px rgba(24,144,255,0.10), 0 2px 8px rgba(0,0,0,0.07);
+    box-shadow: $shadow-sm;
     border: 1.5px solid #e6eaf0;
-    border-right: none;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    padding: 16px 18px 14px 18px;
-    z-index: 1000;
+    padding: $spacing-md $spacing-lg;
+    z-index: $z-index-panel;
     min-width: 120px;
+    
+    @media (max-width: $tablet) {
+      right: $spacing-md;
+      bottom: 120px;
+      padding: $spacing-sm $spacing-md;
+    }
+    
+    @media (max-width: $mobile) {
+      right: $spacing-sm;
+      bottom: 80px;
+      padding: $spacing-sm;
+      font-size: 12px;
+    }
     .legend-title {
       font-size: 13px;
       color: #1890ff;

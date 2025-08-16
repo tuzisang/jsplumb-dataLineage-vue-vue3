@@ -323,21 +323,37 @@ export default {
       console.warn('无法加载保存的小地图尺寸', e);
     }
     
-    // 计算适当的缩放比例
-    this.calculateScale();
-    
-    // 尝试加载用户保存的缩放比例
-    try {
-      const savedScale = localStorage.getItem('minimap_scale');
-      if (savedScale && !isNaN(parseFloat(savedScale))) {
-        const userScale = parseFloat(savedScale);
-        if (userScale >= this.minScale && userScale <= this.maxScale) {
-          this.scale = userScale;
+    // 延迟初始化，确保DOM完全渲染
+    this.$nextTick(() => {
+      setTimeout(() => {
+        // 计算适当的缩放比例
+        this.calculateScale();
+        
+        // 尝试加载用户保存的缩放比例
+        try {
+          const savedScale = localStorage.getItem('minimap_scale');
+          if (savedScale && !isNaN(parseFloat(savedScale))) {
+            const userScale = parseFloat(savedScale);
+            if (userScale >= this.minScale && userScale <= this.maxScale) {
+              this.scale = userScale;
+            }
+          }
+        } catch (e) {
+          console.warn('无法加载保存的小地图缩放比例', e);
         }
-      }
-    } catch (e) {
-      console.warn('无法加载保存的小地图缩放比例', e);
-    }
+        
+        // 定位到第一个来源表
+        this.positionFirstOriginNode();
+        this.updateViewportIndicator(true);
+        
+        // 触发一次强制更新，确保位置正确
+        this.$nextTick(() => {
+          setTimeout(() => {
+            this.forceUpdateViewport();
+          }, 100);
+        });
+      }, 50);
+    });
     
     // 添加全局事件监听
     window.addEventListener('mousemove', this.handleGlobalMouseMove);
@@ -747,16 +763,23 @@ export default {
 
 <style scoped>
 .minimap-container {
-  position: absolute;
+  position: fixed;
   bottom: 20px;
   right: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid #e6eaf0;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 1000;
+  z-index: 1001;
   font-size: 0; /* 消除内部元素间的空白 */
+  backdrop-filter: blur(8px);
+  
+  @media (max-width: 768px) {
+    bottom: 16px;
+    right: 16px;
+    border-radius: 6px;
+  }
 }
 
 .minimap-content {

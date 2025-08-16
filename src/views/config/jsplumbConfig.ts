@@ -16,8 +16,8 @@ const commConfig = {
     },
     // 浅灰色连接线样式
     PaintStyle: {
-        stroke: "#BDBDBD", // 浅灰色 - 默认连接线
-        strokeWidth: 1.5,
+        stroke: "#E0E0E0", // 浅灰色 - 默认连接线
+        strokeWidth: 1.3,
         strokeLinecap: "round"
     },
     // 红色悬停样式

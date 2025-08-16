@@ -611,6 +611,13 @@ export default {
     // 初始化动态样式表
     this.initDynamicStyleSheet();
 
+    // 延迟调整作者信息位置，避免与小地图重叠
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.adjustAuthorPosition();
+      }, 200);
+    });
+
     // 保存高性能模式设置到 localStorage
     try {
       localStorage.setItem('highPerformanceMode', 'true');
@@ -3850,6 +3857,29 @@ export default {
 
     // CSS 优化方法
     // 初始化动态样式表
+    // 调整作者信息位置，避免与小地图重叠
+    adjustAuthorPosition() {
+      this.$nextTick(() => {
+        const authorSignature = document.querySelector('.author-signature');
+        const miniMapContainer = document.querySelector('.minimap-container');
+        
+        if (authorSignature && miniMapContainer) {
+          // 获取小地图的实际尺寸和位置
+          const miniMapRect = miniMapContainer.getBoundingClientRect();
+          const miniMapWidth = miniMapRect.width;
+          const miniMapHeight = miniMapRect.height;
+          
+          // 计算作者信息的理想位置
+          const rightPosition = Math.max(16, miniMapWidth + 30);
+          const bottomPosition = Math.max(190, miniMapHeight + 20 + 16);
+          
+          // 设置作者信息位置
+          authorSignature.style.right = rightPosition + 'px';
+          authorSignature.style.bottom = bottomPosition + 'px';
+        }
+      });
+    },
+
     initDynamicStyleSheet() {
       if (this.styleSheet) return;
 
@@ -4382,13 +4412,10 @@ export default {
 
       // 动态调整作者信息和表类型说明的位置
       this.$nextTick(() => {
-        const authorSignature = document.querySelector('.author-signature');
+        // 使用统一的adjustAuthorPosition方法
+        this.adjustAuthorPosition();
+        
         const tableTypeLegend = document.querySelector('.table-type-legend');
-
-        if (authorSignature) {
-          authorSignature.style.right = (width + 30) + 'px';
-        }
-
         if (tableTypeLegend) {
           // 小地图变大时，表类型说明往上挪，避免重叠
           const baseBottom = 150; // 基础bottom值
