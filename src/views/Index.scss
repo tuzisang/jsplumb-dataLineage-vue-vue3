@@ -38,6 +38,15 @@ $desktop: 1024px;
       width: 420px;
       min-width: 320px;
       max-width: 95vw;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e6e6e6;
+      padding: 0 0 8px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
       
       @media (max-width: $tablet) {
         width: calc(100vw - #{$spacing-lg * 2});
@@ -53,15 +62,6 @@ $desktop: 1024px;
         right: $spacing-sm;
         bottom: $spacing-sm;
       }
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid #e6e6e6;
-      padding: 0 0 8px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.05);
-      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
       
       &:hover {
         transform: translateX(-50%) translateY(-2px);
@@ -876,6 +876,10 @@ $desktop: 1024px;
     box-shadow: $shadow-md;
     border: 1.5px solid #e6eaf0;
     z-index: $z-index-panel;
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    transition: box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), border 0.2s, width 0.3s ease, transform 0.2s ease;
     
     @media (max-width: $tablet) {
       left: $spacing-md;
@@ -891,10 +895,6 @@ $desktop: 1024px;
       width: calc(100vw - #{$spacing-sm * 2});
       max-width: none;
     }
-    display: flex;
-    flex-direction: column;
-    font-size: 13px;
-    transition: box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), border 0.2s, width 0.3s ease, transform 0.2s ease;
     
     &:hover {
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
