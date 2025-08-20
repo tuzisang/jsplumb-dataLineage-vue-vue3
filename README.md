@@ -107,8 +107,17 @@ npm install
 npm run dev
 # 访问: http://localhost:8620
 
-# 启动后端（可选）
-cd api && pip install -r requirements.txt && python server.py
+# 启动后端
+# 创建虚拟环境
+python -m venv venv
+
+# 激活虚拟环境
+source venv/bin/activate #linux
+venv\Scripts\activate #windows
+
+# 安装依赖
+pip install -r requirements.txt 
+python api/server.py
 # API: http://localhost:5000
 ```
 
