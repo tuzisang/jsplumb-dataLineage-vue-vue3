@@ -2172,6 +2172,15 @@ export default {
         }
         levelGroups.get(level).push(node);
       });
+      
+      // 在同一层级内按照引用次数进行升序排序（引用次数少的在上方）
+      levelGroups.forEach(levelNodes => {
+        levelNodes.sort((a, b) => {
+          const refCountA = this.getTableReferenceCount(a.name);
+          const refCountB = this.getTableReferenceCount(b.name);
+          return refCountA - refCountB; // 升序排序：引用次数少的在前（上方）
+        });
+      });
 
       // 重新分配坐标 - 优化间距和初始位置，让节点更紧凑
       const levelWidth = 500; // 保持水平间距500px
