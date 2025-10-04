@@ -44,8 +44,7 @@ FROM foo a
          LEFT JOIN grault b
               ON a.col1 = b.col1;
 ```
-![表级分析](http://154.201.77.68:7658/file/1755671177613_20250820142604.png)
-![列级分析](http://154.201.77.68:7658/file/1755670735724_20250820141848.png)
+B站视频演示：<a href="https://www.bilibili.com/video/BV1FXHLzUEYK/?share_source=copy_web&vd_source=e66f868628e69de4b9cee838b895b850">https://www.bilibili.com/video/BV1FXHLzUEYK/?share_source=copy_web&vd_source=e66f868628e69de4b9cee838b895b850</a>
 ### 🎯 双模式血缘分析
 **一键切换**表级/列级血缘视图
 - **表级模式**：完整血缘链路，支持源表/中间表/结果表识别
