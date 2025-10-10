@@ -34,6 +34,8 @@ env/
 .env
 .venv
 
-# 
+# Add .trae and .qoder to gitignore as per user request
 .trae
 .qoder
+
+D:\OpenSourceProject\jsplumb-dataLineage-vue-vue3>
