@@ -33,3 +33,7 @@ venv3/
 env/
 .env
 .venv
+
+# 
+.trae
+.qoder
