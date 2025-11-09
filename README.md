@@ -8,16 +8,19 @@
 ## 🚀 技术架构（前端专精）
 
 ### 前端技术栈（深度优化）
-- **Vue 3.4+** + **TypeScript 5.0+**：现代化开发框架，类型安全
-- **JSPlumb 6.0+**：专业的图形连接库，深度定制版本
-- **Vite 5.0+**：极速构建工具，开发体验优化
-- **原生JavaScript**：高性能算法实现，无额外依赖
-- **CSS Grid + Flexbox**：响应式布局，完美适配
+
+![Vue 3.4+](https://img.shields.io/badge/Vue-3.4+-42b883?style=for-the-badge&logo=vue.js)
+![TypeScript 5.0+](https://img.shields.io/badge/TypeScript-5.0+-3178c6?style=for-the-badge&logo=typescript)
+![JSPlumb 6.0+](https://img.shields.io/badge/JSPlumb-6.0+-ff6600?style=for-the-badge)
+![Vite 5.0+](https://img.shields.io/badge/Vite-5.0+-646cff?style=for-the-badge&logo=vite)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-f7df1e?style=for-the-badge&logo=javascript)
+![CSS3](https://img.shields.io/badge/CSS3-Grid/Flexbox-1572b6?style=for-the-badge&logo=css3)
 
 ### 后端技术栈（保持原生）
-- **Python Flask**：轻量级Web服务
-- **SQLLineage**：SQL血缘解析核心（未修改）
-- **NetworkX**：图数据结构处理（未修改）
+
+![Python Flask](https://img.shields.io/badge/Flask-2.0+-000000?style=for-the-badge&logo=flask)
+![SQLLineage](https://img.shields.io/badge/SQLLineage-1.5+-4b4b4b?style=for-the-badge)
+![NetworkX](https://img.shields.io/badge/NetworkX-3.5+-00a8e8?style=for-the-badge)
 
 ## ✨ 核心功能亮点
 可视化示例
@@ -74,28 +77,29 @@ B站视频演示：<a href="https://www.bilibili.com/video/BV1FXHLzUEYK/?share_s
 
 | 功能类别 | 核心特性 |
 |----------|----------|
-| **血缘分析** | 表级/列级双模式、关键路径识别、链路高亮 |
-| **搜索定位** | 毫秒级模糊搜索、一键精准定位、批量导航 |
-| **交互体验** | 拖拽布局、折叠面板、响应式设计 |
-| **数据管理** | 节点列表分组、历史记录、表类型筛选 |
-| **导出分享** | 高清图片下载、SQl上传、节点信息复制 |
+| 🧬 **血缘分析** | 表级/列级双模式、关键路径识别、链路高亮 |
+| 🔍 **搜索定位** | 毫秒级模糊搜索、一键精准定位、批量导航 |
+| 🎨 **交互体验** | 拖拽布局、折叠面板、响应式设计 |
+| 📦 **数据管理** | 节点列表分组、历史记录、表类型筛选 |
+| 📤 **导出分享** | 高清图片下载、SQl上传、节点信息复制 |
 
 ## 🎯 适用角色
 
 | 角色 | 核心价值 |
 |------|----------|
-| **数据架构师** | 架构优化、影响评估、标准制定 |
-| **数据工程师** | 故障排查、ETL优化、变更管理 |
-| **业务分析师** | 数据理解、报表验证、需求分析 |
-| **数据治理** | 资产盘点、质量监控、合规审计 |
+| 🏗️ **数据架构师** | 架构优化、影响评估、标准制定 |
+| 🔧 **数据工程师** | 故障排查、ETL优化、变更管理 |
+| 📊 **业务分析师** | 数据理解、报表验证、需求分析 |
+| 🛡️ **数据治理** | 资产盘点、质量监控、合规审计 |
 
 
 ## 🚀 快速开始
 
 ### 环境要求
-- **Node.js**: 22.11.0+
-- **Python**: 3.12.9+（仅后端API）
-- **npm**: 10+
+
+![Node.js 22.11.0+](https://img.shields.io/badge/Node.js-22.11.0+-339933?style=for-the-badge&logo=node.js)
+![Python 3.12.9+](https://img.shields.io/badge/Python-3.12.9+-3776ab?style=for-the-badge&logo=python)
+![npm 10+](https://img.shields.io/badge/npm-10+-cb3837?style=for-the-badge&logo=npm)
 
 ### 启动命令
 ```bash
@@ -134,20 +138,20 @@ src/
 ## 🤝 参与贡献
 
 欢迎前端优化贡献：
-- 🎨 UI/UX改进
-- ⚡ 性能优化
-- 🐛 Bug修复
-- ✨ 功能增强
+- 🎨 **UI/UX改进**
+- ⚡ **性能优化**
+- 🐛 **Bug修复**
+- ✨ **功能增强**
 
 
 
 ## 🌟 未来规划
 
-### 已完成的功能
+### ✅ 已完成的功能
 
 - [x] **智能SQL分析**：表级和列级模式切换时，自动触发SQL分析，无需手动刷新
 
-### 未来待完成的功能
+### 🚀 未来待完成的功能
 
 - [ ] **语法兼容性增强**：解决被反引号(`)包围的关键字导致的语法错误问题，提高SQL解析准确率
 - [ ] **部署体验优化**：完善Docker方式的部署，提供更简便的一键部署方案
