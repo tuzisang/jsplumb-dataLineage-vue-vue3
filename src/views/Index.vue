@@ -717,6 +717,11 @@ export default {
     lineageLevel: {
       handler(newLevel, oldLevel) {
         if (newLevel !== oldLevel) {
+          // 自动触发SQL分析
+          if (this.sqlQuery.trim()) {
+            this.analyzeSql();
+          }
+          
           this.$nextTick(() => {
             // 确保所有节点在模式切换后都可以拖动
             this.restoreAllNodesDraggable();
