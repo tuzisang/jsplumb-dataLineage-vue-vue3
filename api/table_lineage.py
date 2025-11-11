@@ -11,7 +11,8 @@ START_Y = 20  # 起始 Y 坐标
 
 def get_table_lineage_json(
         sql_query: str,
-        filter_ctes: bool = True
+        filter_ctes: bool = True,
+        sql_dialect: str = 'default'  # 新增参数：SQL 方言
 ) -> Dict[str, List[Dict]]:
     """
     解析 SQL 查询，使用 sqllineage 生成表级血缘关系数据。
@@ -19,6 +20,7 @@ def get_table_lineage_json(
     Args:
         sql_query (str): 要解析的 SQL 查询字符串
         filter_ctes (bool): 是否过滤 CTE（只显示物理表）
+        sql_dialect (str): SQL 方言，默认为 'default'
     
     Returns:
         dict: 包含 'edges' 和 'nodes' 列表的字典
@@ -39,7 +41,11 @@ def get_table_lineage_json(
             if not stmt:
                 continue
                 
-            runner = LineageRunner(sql=stmt, verbose=False)
+            # 根据方言参数创建 LineageRunner 实例
+            if sql_dialect == 'default':
+                runner = LineageRunner(sql=stmt, verbose=False)
+            else:
+                runner = LineageRunner(sql=stmt, dialect=sql_dialect, verbose=False)
             
             # 收集源表和目标表
             current_sources = {str(t) for t in runner.source_tables}

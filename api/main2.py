@@ -17,7 +17,8 @@ START_Y = 20  # 起始 Y 坐标
 
 def get_lineage_json_from_parsed_output(
         sql_query: str,
-        filter_ctes: bool = True  # 是否过滤掉CTE（只显示物理中间表）
+        filter_ctes: bool = True,  # 是否过滤掉CTE（只显示物理中间表）
+        sql_dialect: str = 'default'  # 新增参数：SQL 方言
 ) -> Dict[str, List[Dict]]:
     """
     解析 SQL 查询，使用 sqllineage 的底层 API (LineageRunner)，
@@ -27,6 +28,7 @@ def get_lineage_json_from_parsed_output(
         filter_ctes (bool): 是否过滤掉 CTE（即名称中不含 '.' 的中间表），只显示物理中间表。
                             如果为 True，则过滤掉 CTE，只显示物理中间表。
                             如果为 False，则显示所有中间表（CTE 和物理中间表）。
+        sql_dialect (str): SQL 方言，默认为 'default'
     Returns:
         dict: 包含 'edges' 和 'nodes' 列表的字典。
     """
@@ -37,14 +39,25 @@ def get_lineage_json_from_parsed_output(
         
         # 存储每个语句的血缘关系
         statement_lineages = []
+        last_runner = None  # 保存最后一个 runner 实例
         for stmt in statements:
             if not stmt:
                 continue
                 
-            runner = LineageRunner(
-                sql=stmt,
-                verbose=False
-            )
+            # 根据方言参数创建 LineageRunner 实例
+            if sql_dialect == 'default':
+                runner = LineageRunner(
+                    sql=stmt,
+                    verbose=False
+                )
+            else:
+                runner = LineageRunner(
+                    sql=stmt,
+                    dialect=sql_dialect,
+                    verbose=False
+                )
+            
+            last_runner = runner  # 保存当前 runner
             
             # 获取当前语句的源表和目标表
             current_source_tables = {str(t) for t in runner.source_tables}
@@ -100,6 +113,7 @@ def get_lineage_json_from_parsed_output(
                 # 处理边收集
                 if len(col_lineage_path_tuple) >= 2:
                     prev_table = None
+                    prev_field = None  # 初始化 prev_field
                     for col_obj in col_lineage_path_tuple:
                         if col_obj.parent is not None:
                             current_table = str(col_obj.parent)
@@ -120,7 +134,8 @@ def get_lineage_json_from_parsed_output(
                 all_tables_in_lineage_fields - source_tables_names - target_tables_names
         )
         # 确保 sqllineage 明确识别的中间表也被包含（尽管对于 CTE 可能为空）
-        all_discovered_intermediates.update({str(t) for t in runner.intermediate_tables})
+        if last_runner:  # 使用最后一个 runner 实例
+            all_discovered_intermediates.update({str(t) for t in last_runner.intermediate_tables})
 
         # 根据 filter_ctes 参数，确定最终要"显示"的中间表集合（用于节点列表和层级计算）
         intermediate_tables_to_display: Set[str] = set()
