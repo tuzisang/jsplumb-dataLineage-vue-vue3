@@ -14,6 +14,7 @@ def analyze_sql_lineage(data):
         "sql_query": "SQL查询语句",
         "filter_ctes": true/false,  # 可选，默认true，是否仅显示物理表
         "lineage_level": "table"/"column"  # 可选，默认"column"
+        "sql_dialect": "default"/"mysql"/"postgresql"/...  # 可选，默认"default"
     }
     
     返回:
@@ -29,20 +30,23 @@ def analyze_sql_lineage(data):
         sql_query = data['sql_query']
         filter_ctes = data.get('filter_ctes', True)
         lineage_level = data.get('lineage_level', 'column')  # 新增参数
+        sql_dialect = data.get('sql_dialect', 'default')  # 新增参数：SQL 方言
         
         print(f"Processing SQL query: {sql_query}")
-        print(f"Parameters: filter_ctes={filter_ctes}, lineage_level={lineage_level}")
+        print(f"Parameters: filter_ctes={filter_ctes}, lineage_level={lineage_level}, sql_dialect={sql_dialect}")
         
         # 根据分析级别调用相应的函数
         if lineage_level == 'table':
             result = get_table_lineage_json(
                 sql_query=sql_query,
-                filter_ctes=filter_ctes
+                filter_ctes=filter_ctes,
+                sql_dialect=sql_dialect  # 传递方言参数
             )
         else:  # column level
             result = get_lineage_json_from_parsed_output(
                 sql_query=sql_query,
-                filter_ctes=filter_ctes
+                filter_ctes=filter_ctes,
+                sql_dialect=sql_dialect  # 传递方言参数
             )
         
         print(f"Analysis completed successfully")

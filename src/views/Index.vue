@@ -36,6 +36,21 @@
                   <span class="radio-text">列级</span>
                 </label>
               </div>
+              <!-- 新增：SQL 方言选择 -->
+              <div class="sql-dialect-selector compact">
+                <span class="option-label">SQL 方言：</span>
+                <select v-model="sqlDialect" class="dialect-select">
+                  <option value="default">默认 (ansi)</option>
+                  <option value="mysql">MySQL</option>
+                  <option value="postgres">PostgreSQL</option>
+                  <option value="sparksql">SparkSQL</option>
+                  <option value="hive">Hive</option>
+                  <option value="sqlite">SQLite</option>
+                  <option value="oracle">Oracle</option>
+                  <option value="tsql">SQL Server</option>
+                </select>
+              </div>
+              <!-- 新增结束 -->
               <label class="option-label compact">
                 <input type="checkbox" v-model="filterCtes">
                 <span class="option-text">仅显示物理表</span>
@@ -438,6 +453,7 @@ export default {
         edges: []
       },
       lineageLevel: 'column', // 默认为列级分析
+      sqlDialect: 'default', // 新增：SQL 方言选择
       showMiniMap: true, // 控制小地图显示
       commConfig: commConfig,
       auxiliaryLine: { isShowXLine: false, isShowYLine: false },
@@ -2604,7 +2620,8 @@ export default {
           body: JSON.stringify({
             sql_query: this.sqlQuery,
             filter_ctes: this.filterCtes,
-            lineage_level: this.lineageLevel // 添加血缘分析级别参数
+            lineage_level: this.lineageLevel, // 添加血缘分析级别参数
+            sql_dialect: this.sqlDialect // 新增：添加 SQL 方言参数
           })
         });
 

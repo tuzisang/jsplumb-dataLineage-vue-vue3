@@ -252,6 +252,43 @@ $desktop: 1024px;
                   }
                 }
               }
+              // 新增：SQL 方言选择样式
+              .sql-dialect-selector {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                margin-right: 4px;
+                &.compact {
+                  margin-right: 2px;
+                  gap: 2px;
+                }
+                .option-label {
+                  font-size: 12px;
+                  color: #333;
+                  margin-right: 2px;
+                }
+                .dialect-select {
+                  font-size: 12px;
+                  padding: 2px 4px;
+                  border: 1px solid #d9d9d9;
+                  border-radius: 4px;
+                  background: #fff;
+                  color: #333;
+                  cursor: pointer;
+                  outline: none;
+                  transition: all 0.2s;
+                  
+                  &:hover {
+                    border-color: #1890ff;
+                  }
+                  
+                  &:focus {
+                    border-color: #1890ff;
+                    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+                  }
+                }
+              }
+              // 新增结束
               .option-label {
                 display: flex;
                 align-items: center;
