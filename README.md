@@ -102,6 +102,8 @@ B站视频演示：<a href="https://www.bilibili.com/video/BV1FXHLzUEYK/?share_s
 ![npm 10+](https://img.shields.io/badge/npm-10+-cb3837?style=for-the-badge&logo=npm)
 
 ### 启动命令
+
+#### 传统方式（开发环境）
 ```bash
 # 安装依赖
 npm install
@@ -119,9 +121,39 @@ source venv/bin/activate #linux
 venv\Scripts\activate #windows
 
 # 安装依赖
-pip install -r requirements.txt 
+pip install -r requirements.txt
 python api/server.py
 # API: http://localhost:5000
+```
+
+#### Docker 一键部署（生产/测试环境）
+```bash
+# Windows 用户
+.\deploy.bat
+
+# Linux/Mac 用户
+chmod +x deploy.sh  # 首次运行需要添加执行权限
+./deploy.sh
+```
+
+部署完成后：
+- 前端访问: http://localhost:8620
+- 后端API: http://localhost:5000
+
+#### Docker 手动部署
+```bash
+# 构建并启动服务
+docker-compose up --build -d
+
+# 停止服务
+docker-compose down
+
+# 查看日志
+docker-compose logs -f
+
+# 自定义端口（修改 .env 文件）
+FRONTEND_PORT=8080
+BACKEND_PORT=8081
 ```
 
 ## 📁 项目结构
@@ -155,7 +187,12 @@ src/
 ### 🚀 未来待完成的功能
 
 - [ ] **语法兼容性增强**：解决被反引号(`)包围的关键字导致的语法错误问题，提高SQL解析准确率
-- [ ] **部署体验优化**：完善Docker方式的部署，提供更简便的一键部署方案
+
+### ✅ 已完成的功能
+
+- [x] **智能SQL分析**：表级和列级模式切换时，自动触发SQL分析，无需手动刷新
+- [x] **SQL方言支持**：增加对不同数据库SQL方言的解析支持
+- [x] **部署体验优化**：完善Docker方式的部署，提供更简便的一键部署方案
 
 
 
