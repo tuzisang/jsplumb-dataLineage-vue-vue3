@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from lineage import analyze_sql_lineage
@@ -29,4 +30,7 @@ def login():
         return jsonify({'error': '账号或密码错误'}), 401
 
 if __name__ == '__main__':
-    app.run(port=5000) 
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('FLASK_ENV', 'production') != 'production'
+    app.run(host=host, port=port, debug=debug) 
