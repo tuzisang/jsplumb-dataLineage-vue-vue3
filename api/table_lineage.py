@@ -1,6 +1,7 @@
 from typing import Dict, List, Set, Union
 from sqllineage.runner import LineageRunner
 import traceback
+from sql_utils import detect_and_set_dialect_for_backticks
 
 # --- 布局常量 ---
 NODE_BASE_HEIGHT = 60  # 节点基础高度
@@ -26,6 +27,12 @@ def get_table_lineage_json(
         dict: 包含 'edges' 和 'nodes' 列表的字典
     """
     try:
+        # 自动检测反引号并设置合适的SQL方言
+        detected_dialect = detect_and_set_dialect_for_backticks(sql_query, sql_dialect)
+        if detected_dialect != sql_dialect:
+            print(f"Auto-detected dialect '{detected_dialect}' due to backtick usage in SQL")
+            sql_dialect = detected_dialect
+
         # 分割多个SQL语句
         statements = sql_query.strip().split(';\n')
         statements = [stmt.strip() for stmt in statements if stmt.strip()]
