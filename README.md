@@ -5,6 +5,19 @@
 > 针对 [jsplumb-dataLineage-vue](https://github.com/mizuhokaga/jsplumb-dataLineage-vue) 的前端深度重构，打造企业级数据血缘可视化体验。
 > 后端沿用 [SQLLineage](https://github.com/reata/sqllineage) 原生API，零改造直接调用。
 
+---
+
+<div align="center">
+
+## 🌐 Language / 语言
+
+[![中文](https://img.shields.io/badge/🇨🇳-中文-red?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxNiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwLjMzIDMuODVMMTIuOTIgNi40NEwxMC4zMyA5LjAzTDEwLjMzIDMuODVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNS42NyAzLjg1TDMuMDggNi40NEw1LjY3IDkuMDNMNS42NyAzLjg1WiIgZmlsbD0iI0ZGRjAwMCIvPgo8L3N2Zz4K)](README.md)
+[![English](https://img.shields.io/badge/🇺🇸-English-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxNiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjEyIiBmaWxsPSIjMDAyNDY2Ii8+CjxyZWN0IHdpZHRoPSIxNiIgaGVpZ2h0PSI0IiBmaWxsPSIjRkZGRkZGIi8+Cjwvc3ZnPgo=)](README_EN.md)
+
+</div>
+
+---
+
 ## 🚀 技术架构（前端专精）
 
 ### 前端技术栈（深度优化）
@@ -205,7 +218,6 @@ src/
 - **后端**：SQLLineage原生MIT协议
 
 ## 🙏 致谢
-
 - [jsplumb-dataLineage-vue](https://github.com/mizuhokaga/jsplumb-dataLineage-vue) - 前端基础
 - [SQLLineage](https://github.com/reata/sqllineage) - SQL解析引擎
 - [JSPlumb](https://jsplumbtoolkit.com/) - 图形连接库
