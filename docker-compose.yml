@@ -1,20 +1,24 @@
-version: '3.8'
-
 services:
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8620}:80"
     environment:
-      - NGINX_HOST=frontend
-      - NGINX_PORT=80
+      - cors_origin=${CORS_ORIGIN:-http://localhost:8620}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - datalineage-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   backend:
     build:
@@ -25,11 +29,17 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_APP=server.py
-    volumes:
-      - ./api:/app
+      - PORT=5000
+      - HOST=0.0.0.0
     restart: unless-stopped
     networks:
       - datalineage-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   datalineage-network:
