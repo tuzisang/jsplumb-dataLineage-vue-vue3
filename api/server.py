@@ -18,6 +18,10 @@ def handle_lineage():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'healthy', 'service': 'data-lineage-api'}), 200
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
