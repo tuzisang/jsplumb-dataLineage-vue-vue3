@@ -34,6 +34,25 @@ env/
 .env
 .venv
 
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+*.orig
+*.backup
+*~
+
+# Windows specific
+nul
+*.lnk
+
 # Add .trae and .qoder to gitignore as per user request
 .trae
 .qoder

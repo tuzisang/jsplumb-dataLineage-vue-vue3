@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(chmod +x deploy.sh)"
+      "Bash(chmod +x deploy.sh)",
+      "Bash(gh release create:*)"
     ],
     "deny": [],
     "ask": []

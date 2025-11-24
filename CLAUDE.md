@@ -35,6 +35,7 @@ This is a frontend-focused refactored version of the original project, with sign
 - Node.js 22.11.0+
 - Python 3.12.9+
 - npm 10+
+- Docker & Docker Compose (for containerized deployment)
 
 ## Core Architecture
 
@@ -162,11 +163,18 @@ The application follows a single-page application (SPA) pattern with Vue 3 Compo
 - Docker deployment uses health checks and multi-stage builds for production reliability
 - The project is a frontend-focused refactoring with significant performance improvements (4-10x)
 
+### Code Quality & Style**
+- **Linting**: Uses stylelint for CSS/SCSS with `stylelint-config-standard-scss`
+- **TypeScript**: Partial TypeScript adoption (type definitions in `src/types/index.ts`)
+- **Testing**: Limited test coverage - basic API endpoint test in `api/test.py`
+- **Code Style**: Vue 3 Composition API, modular component architecture
+
 **Common Issues**:
 - JSPlumb instance cleanup is critical to prevent memory leaks
 - Large SQL queries may need timeout handling
 - Virtual rendering requires careful viewport management
 - CORS configuration must match deployment environment
+- No TypeScript strict mode - mixed JS/TS codebase
 
 **File Upload Feature**:
 - Supports `.sql` files for testing complex queries
@@ -174,3 +182,10 @@ The application follows a single-page application (SPA) pattern with Vue 3 Compo
 - Integration with history management system
 
 This project is a frontend-focused refactored version that prioritizes performance and scalability (4-10x improvements) for enterprise data lineage analysis while maintaining flexibility for different SQL environments and deployment scenarios. The backend API remains unchanged for seamless integration with existing SQLLineage deployments.
+
+### Development Workflow Notes
+- **No automated testing framework**: Testing is manual with basic endpoint verification
+- **Stylelint available**: Run `npx stylelint "**/*.{css,scss}"` to check styles
+- **Hot reload**: Frontend dev server supports hot module replacement
+- **API proxy**: Development proxy automatically routes `/api/*` to backend
+- **Docker-first**: Production deployment designed around Docker containers
