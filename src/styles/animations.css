@@ -1,0 +1,745 @@
+/**
+ * 连接线动画样式定义
+ * 包含各种动画效果、主题配置和响应式设计
+ */
+
+/* ================================
+   全局动画变量
+   ================================ */
+:root {
+  /* 动画颜色主题 */
+  --animation-primary: #1890ff;
+  --animation-primary-light: #40a9ff;
+  --animation-primary-dark: #096dd9;
+
+  --animation-secondary: #52c41a;
+  --animation-secondary-light: #73d13d;
+  --animation-secondary-dark: #389e0d;
+
+  --animation-accent: #faad14;
+  --animation-accent-light: #ffc53d;
+  --animation-accent-dark: #d48806;
+
+  --animation-success: #52c41a;
+  --animation-warning: #faad14;
+  --animation-error: #ff4d4f;
+  --animation-info: #1890ff;
+
+  /* 动画参数 */
+  --animation-speed: 1.0;
+  --animation-duration: 2000ms;
+  --animation-easing: ease-in-out;
+  --animation-intensity: 0.8;
+
+  /* 流动动画 */
+  --flow-dot-size: 8px;
+  --flow-dot-color: var(--animation-primary);
+  --flow-stroke-width: 2px;
+  --flow-path-gap: 8px;
+
+  /* 脉冲动画 */
+  --pulse-scale: 1.2;
+  --pulse-opacity-min: 0.3;
+  --pulse-opacity-max: 1.0;
+
+  /* 呼吸动画 */
+  --breathing-opacity-min: 0.2;
+  --breathing-opacity-max: 1.0;
+  --breathing-gradient-width: 100px;
+
+  /* 高亮动画 */
+  --highlight-glow-size: 12px;
+  --highlight-stroke-width: 3px;
+  --highlight-dash-array: 5,5;
+
+  /* 性能相关 */
+  --max-concurrent-animations: 10;
+  --animation-frame-rate: 60;
+  --hardware-acceleration: true;
+}
+
+/* 深色主题 */
+[data-theme="dark"] {
+  --animation-primary: #40a9ff;
+  --animation-primary-light: #69c0ff;
+  --animation-primary-dark: #1890ff;
+
+  --animation-secondary: #73d13d;
+  --animation-secondary-light: #95de64;
+  --animation-secondary-dark: #52c41a;
+
+  --animation-accent: #ffc53d;
+  --animation-accent-light: #ffd666;
+  --animation-accent-dark: #faad14;
+}
+
+/* 绿色主题 */
+[data-theme="green"] {
+  --animation-primary: #52c41a;
+  --animation-secondary: #73d13d;
+  --animation-accent: #faad14;
+}
+
+/* 紫色主题 */
+[data-theme="purple"] {
+  --animation-primary: #722ed1;
+  --animation-secondary: #9254de;
+  --animation-accent: #faad14;
+}
+
+/* 橙色主题 */
+[data-theme="orange"] {
+  --animation-primary: #fa8c16;
+  --animation-secondary: #ffa940;
+  --animation-accent: #52c41a;
+}
+
+/* 红色主题 */
+[data-theme="red"] {
+  --animation-primary: #f5222d;
+  --animation-secondary: #ff4d4f;
+  --animation-accent: #faad14;
+}
+
+/* ================================
+   流动动画效果
+   ================================ */
+.flow-animation {
+  position: relative;
+}
+
+.flow-dot {
+  position: absolute;
+  width: var(--flow-dot-size);
+  height: var(--flow-dot-size);
+  background: var(--flow-dot-color);
+  border-radius: 50%;
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 calc(var(--flow-dot-size) * 1.5) var(--flow-dot-color),
+    0 0 calc(var(--flow-dot-size) * 3) rgba(255, 255, 255, 0.5);
+  z-index: 1000;
+  animation: flowMove calc(var(--animation-duration) / var(--animation-speed))
+             linear infinite;
+}
+
+@keyframes flowMove {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* 多个流动点 */
+.flow-dots .flow-dot:nth-child(2) {
+  animation-delay: calc(var(--animation-duration) / var(--animation-speed) * 0.3);
+}
+
+.flow-dots .flow-dot:nth-child(3) {
+  animation-delay: calc(var(--animation-duration) / var(--animation-speed) * 0.6);
+}
+
+/* 双向流动 */
+.flow-animation.bidirectional .flow-dot {
+  animation-name: flowMoveBidirectional;
+}
+
+@keyframes flowMoveBidirectional {
+  0%, 100% {
+    left: 0;
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  50% {
+    left: 100%;
+    opacity: 0;
+  }
+  75% {
+    opacity: 1;
+  }
+}
+
+/* ================================
+   脉冲动画效果
+   ================================ */
+.pulse-animation {
+  position: relative;
+}
+
+.pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--animation-primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: pulseExpand calc(var(--animation-duration) / var(--animation-speed))
+             ease-out infinite;
+}
+
+.pulse-ring:nth-child(2) {
+  animation-delay: calc(var(--animation-duration) / var(--animation-speed) * 0.5);
+}
+
+.pulse-ring:nth-child(3) {
+  animation-delay: calc(var(--animation-duration) / var(--animation-speed) * 1);
+}
+
+@keyframes pulseExpand {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: var(--pulse-opacity-max);
+  }
+  100% {
+    width: 60px;
+    height: 60px;
+    opacity: 0;
+  }
+}
+
+/* 连接线脉冲 */
+.connection-pulse {
+  stroke: var(--animation-primary);
+  stroke-width: var(--flow-stroke-width);
+  opacity: var(--pulse-opacity-min);
+  animation: connectionPulse calc(var(--animation-duration) / var(--animation-speed))
+             ease-in-out infinite alternate;
+}
+
+@keyframes connectionPulse {
+  0% {
+    stroke-width: var(--flow-stroke-width);
+    opacity: var(--pulse-opacity-min);
+  }
+  50% {
+    stroke-width: calc(var(--flow-stroke-width) * 1.5);
+    opacity: var(--pulse-opacity-max);
+  }
+  100% {
+    stroke-width: var(--flow-stroke-width);
+    opacity: var(--pulse-opacity-min);
+  }
+}
+
+/* ================================
+   呼吸动画效果
+   ================================ */
+.breathing-animation {
+  position: relative;
+  overflow: hidden;
+}
+
+.breathing-gradient {
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--breathing-gradient-width));
+  width: var(--breathing-gradient-width);
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--animation-primary) 50%,
+    transparent 100%
+  );
+  opacity: var(--breathing-opacity-max);
+  animation: breathingMove calc(var(--animation-duration) / var(--animation-speed))
+             ease-in-out infinite;
+}
+
+@keyframes breathingMove {
+  0% {
+    left: calc(-1 * var(--breathing-gradient-width));
+    opacity: var(--breathing-opacity-min);
+  }
+  50% {
+    left: 100%;
+    opacity: var(--breathing-opacity-max);
+  }
+  100% {
+    left: calc(100% + var(--breathing-gradient-width));
+    opacity: var(--breathing-opacity-min);
+  }
+}
+
+/* 连接线呼吸 */
+.connection-breathing {
+  stroke: var(--animation-primary);
+  stroke-width: var(--flow-stroke-width);
+  opacity: var(--breathing-opacity-min);
+  animation: connectionBreathing calc(var(--animation-duration) / var(--animation-speed))
+             ease-in-out infinite alternate;
+}
+
+@keyframes connectionBreathing {
+  0% {
+    opacity: var(--breathing-opacity-min);
+    stroke-width: var(--flow-stroke-width);
+  }
+  100% {
+    opacity: var(--breathing-opacity-max);
+    stroke-width: calc(var(--flow-stroke-width) * 1.2);
+  }
+}
+
+/* ================================
+   高亮动画效果
+   ================================ */
+.highlight-animation {
+  position: relative;
+}
+
+.highlight-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--highlight-glow-size) * 2);
+  height: calc(var(--highlight-glow-size) * 2);
+  background: radial-gradient(
+    circle,
+    var(--animation-primary) 0%,
+    transparent 70%
+  );
+  opacity: var(--animation-intensity);
+  animation: highlightGlow calc(var(--animation-duration) / var(--animation-speed))
+             ease-out infinite alternate;
+}
+
+@keyframes highlightGlow {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0.8;
+  }
+}
+
+/* 连接线高亮 */
+.connection-highlight {
+  stroke: var(--animation-primary);
+  stroke-width: var(--highlight-stroke-width);
+  stroke-dasharray: var(--highlight-dash-array);
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 6px var(--animation-primary));
+  animation: highlightStroke calc(var(--animation-duration) / var(--animation-speed))
+             linear infinite;
+}
+
+@keyframes highlightStroke {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: calc(var(--highlight-dash-array) * 2);
+  }
+}
+
+/* 闪烁高亮 */
+.highlight-blink {
+  animation: highlightBlink calc(var(--animation-duration) / var(--animation-speed) / 2)
+             ease-in-out infinite alternate;
+}
+
+@keyframes highlightBlink {
+  0% {
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+}
+
+/* ================================
+   粒子效果
+   ================================ */
+.particle-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--animation-primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: particleFloat calc(var(--animation-duration) / var(--animation-speed))
+             linear infinite;
+}
+
+.particle:nth-child(1) { top: 20%; animation-delay: 0s; }
+.particle:nth-child(2) { top: 40%; animation-delay: 0.5s; }
+.particle:nth-child(3) { top: 60%; animation-delay: 1s; }
+.particle:nth-child(4) { top: 80%; animation-delay: 1.5s; }
+
+@keyframes particleFloat {
+  0% {
+    left: -10px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 110%;
+    opacity: 0;
+  }
+}
+
+/* ================================
+   引导相关动画
+   ================================ */
+
+/* 引导覆盖层动画 */
+.guide-overlay-enter-active,
+.guide-overlay-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.guide-overlay-enter-from,
+.guide-overlay-leave-to {
+  opacity: 0;
+}
+
+/* 引导内容动画 */
+.guide-content-enter-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.guide-content-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.guide-content-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+}
+
+.guide-content-leave-to {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.95);
+}
+
+/* 高亮边框动画 */
+.highlight-border {
+  animation: highlightBorderPulse 2s ease-in-out infinite;
+}
+
+@keyframes highlightBorderPulse {
+  0%, 100% {
+    border-color: var(--animation-primary);
+    box-shadow: 0 0 20px rgba(24, 144, 255, 0.3);
+  }
+  50% {
+    border-color: var(--animation-primary-light);
+    box-shadow: 0 0 30px rgba(24, 144, 255, 0.5);
+  }
+}
+
+/* 指示器动画 */
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--animation-primary);
+  border-radius: 50%;
+  animation: indicatorBounce 1.5s ease-in-out infinite;
+}
+
+.indicator-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.indicator-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes indicatorBounce {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+/* 进度条动画 */
+.progress-fill {
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progress-pulse {
+  animation: progressPulse 2s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ================================
+   性能优化样式
+   ================================ */
+
+/* 硬件加速 */
+.hardware-accelerated {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .flow-animation,
+  .pulse-animation,
+  .breathing-animation,
+  .highlight-animation {
+    display: none;
+  }
+}
+
+/* 低性能模式 */
+.performance-mode {
+  /* 减少阴影和模糊效果 */
+  box-shadow: none !important;
+  filter: none !important;
+
+  /* 简化动画 */
+  animation: none !important;
+  transition: none !important;
+
+  /* 降低视觉复杂度 */
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+/* ================================
+   响应式动画
+   ================================ */
+
+/* 移动设备适配 */
+@media (max-width: 768px) {
+  :root {
+    --animation-duration: 1500ms;
+    --flow-dot-size: 6px;
+    --highlight-glow-size: 8px;
+    --breathing-gradient-width: 60px;
+  }
+
+  /* 减少动画数量 */
+  .particle-container {
+    display: none;
+  }
+
+  .flow-dots .flow-dot:nth-child(3),
+  .pulse-ring:nth-child(3) {
+    display: none;
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+  :root {
+    --animation-duration: 1000ms;
+    --flow-dot-size: 4px;
+    --animation-intensity: 0.6;
+  }
+
+  /* 禁用复杂动画 */
+  .highlight-glow,
+  .breathing-gradient {
+    display: none;
+  }
+}
+
+/* ================================
+   工具类
+   ================================ */
+
+/* 动画控制类 */
+.animation-disabled {
+  animation: none !important;
+  transition: none !important;
+}
+
+.animation-paused {
+  animation-play-state: paused !important;
+}
+
+.animation-slow {
+  --animation-speed: 0.5;
+}
+
+.animation-fast {
+  --animation-speed: 2.0;
+}
+
+.animation-subtle {
+  --animation-intensity: 0.3;
+}
+
+.animation-intense {
+  --animation-intensity: 1.0;
+}
+
+/* 视觉效果类 */
+.glow-effect {
+  box-shadow: 0 0 20px var(--animation-primary);
+}
+
+.pulse-effect {
+  animation: pulseEffect 2s ease-in-out infinite;
+}
+
+@keyframes pulseEffect {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================
+   调试样式
+   ================================ */
+
+.debug-mode .animation-stats {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #00ff00;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 10000;
+  border-radius: 4px;
+}
+
+.debug-mode .animation-boundary {
+  border: 1px dashed #ff0000;
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.debug-mode .flow-dot::before {
+  content: attr(data-debug-id);
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #00ff00;
+  padding: 2px 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 10001;
+}
+
+/* ================================
+   兼容性支持
+   ================================ */
+
+/* 支持老旧浏览器 */
+@supports not (animation: flowMove 1s linear infinite) {
+  .flow-animation::before {
+    content: "→";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--animation-primary);
+    font-size: 16px;
+    font-weight: bold;
+  }
+}
+
+/* 支持不支持CSS变量的浏览器 */
+@supports not (--css: variables) {
+  .flow-dot {
+    background: #1890ff;
+    box-shadow: 0 0 12px #1890ff, 0 0 24px rgba(255, 255, 255, 0.5);
+  }
+
+  .connection-pulse {
+    stroke: #1890ff;
+    stroke-width: 2px;
+  }
+
+  .highlight-glow {
+    background: radial-gradient(circle, #1890ff 0%, transparent 70%);
+  }
+}

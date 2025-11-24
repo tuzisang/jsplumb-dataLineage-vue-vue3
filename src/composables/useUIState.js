@@ -69,9 +69,31 @@ export function useUIState() {
     redrawConnectionsWhileDragging: false,
     useHardwareAcceleration: true,
     enableSmoothScroll: false,
-    enableAnimations: false,
+    enableAnimations: true,
     highPerformanceMode: true,
     showPerformanceStats: false
+  });
+
+  // 引导系统状态
+  const guideEnabled = ref(true);
+  const showGuideOverlay = ref(false);
+  const guideStepIndex = ref(0);
+  const guideCompleted = ref(new Set());
+  const guideSkipped = ref(new Set());
+  const autoStartGuide = ref(true);
+  const showGuideProgress = ref(true);
+
+  // 动画系统状态
+  const animationEnabled = ref(true);
+  const reducedMotion = ref(false);
+  const animationPerformanceMode = ref(false);
+  const activeAnimationsCount = ref(0);
+  const animationSettings = reactive({
+    speed: 1.0,
+    intensity: 0.8,
+    colorTheme: 'default',
+    maxConcurrent: 10,
+    frameRate: 60
   });
 
   // 表类型配置（从外部传入）
@@ -576,6 +598,253 @@ export function useUIState() {
     isMiniMapResizing.value = false;
   }
 
+  // ================================
+  // 引导系统相关方法
+  // ================================
+
+  /**
+   * 切换引导系统启用状态
+   */
+  function toggleGuideEnabled() {
+    guideEnabled.value = !guideEnabled.value;
+    saveUserPreferences();
+  }
+
+  /**
+   * 显示引导覆盖层
+   */
+  function showGuide() {
+    showGuideOverlay.value = true;
+  }
+
+  /**
+   * 隐藏引导覆盖层
+   */
+  function hideGuide() {
+    showGuideOverlay.value = false;
+  }
+
+  /**
+   * 设置引导步骤索引
+   * @param {number} index - 步骤索引
+   */
+  function setGuideStepIndex(index) {
+    guideStepIndex.value = index;
+  }
+
+  /**
+   * 标记引导完成
+   * @param {string} guideId - 引导ID
+   */
+  function markGuideCompleted(guideId) {
+    guideCompleted.value.add(guideId);
+    saveUserPreferences();
+  }
+
+  /**
+   * 标记引导跳过
+   * @param {string} guideId - 引导ID
+   */
+  function markGuideSkipped(guideId) {
+    guideSkipped.value.add(guideId);
+    saveUserPreferences();
+  }
+
+  /**
+   * 检查引导是否完成
+   * @param {string} guideId - 引导ID
+   */
+  function isGuideCompleted(guideId) {
+    return guideCompleted.value.has(guideId);
+  }
+
+  /**
+   * 检查引导是否跳过
+   * @param {string} guideId - 引导ID
+   */
+  function isGuideSkipped(guideId) {
+    return guideSkipped.value.has(guideId);
+  }
+
+  /**
+   * 重置引导状态
+   * @param {string} guideId - 引导ID（可选）
+   */
+  function resetGuideState(guideId) {
+    if (guideId) {
+      guideCompleted.value.delete(guideId);
+      guideSkipped.value.delete(guideId);
+    } else {
+      guideCompleted.value.clear();
+      guideSkipped.value.clear();
+    }
+    saveUserPreferences();
+  }
+
+  /**
+   * 切换自动开始引导
+   */
+  function toggleAutoStartGuide() {
+    autoStartGuide.value = !autoStartGuide.value;
+    saveUserPreferences();
+  }
+
+  /**
+   * 切换引导进度显示
+   */
+  function toggleGuideProgress() {
+    showGuideProgress.value = !showGuideProgress.value;
+    saveUserPreferences();
+  }
+
+  // ================================
+  // 动画系统相关方法
+  // ================================
+
+  /**
+   * 切换动画启用状态
+   */
+  function toggleAnimationEnabled() {
+    animationEnabled.value = !animationEnabled.value;
+    performanceConfig.enableAnimations = animationEnabled.value;
+    saveUserPreferences();
+  }
+
+  /**
+   * 切换减少动画模式
+   */
+  function toggleReducedMotion() {
+    reducedMotion.value = !reducedMotion.value;
+    saveUserPreferences();
+  }
+
+  /**
+   * 切换动画性能模式
+   */
+  function toggleAnimationPerformanceMode() {
+    animationPerformanceMode.value = !animationPerformanceMode.value;
+    saveUserPreferences();
+  }
+
+  /**
+   * 设置活动动画数量
+   * @param {number} count - 动画数量
+   */
+  function setActiveAnimationsCount(count) {
+    activeAnimationsCount.value = count;
+  }
+
+  /**
+   * 更新动画设置
+   * @param {Object} settings - 动画设置
+   */
+  function updateAnimationSettings(settings) {
+    Object.assign(animationSettings, settings);
+    saveUserPreferences();
+  }
+
+  /**
+   * 重置动画设置
+   */
+  function resetAnimationSettings() {
+    Object.assign(animationSettings, {
+      speed: 1.0,
+      intensity: 0.8,
+      colorTheme: 'default',
+      maxConcurrent: 10,
+      frameRate: 60
+    });
+    saveUserPreferences();
+  }
+
+  /**
+   * 保存用户偏好设置
+   */
+  function saveUserPreferences() {
+    try {
+      const preferences = {
+        guide: {
+          enabled: guideEnabled.value,
+          autoStart: autoStartGuide.value,
+          showProgress: showGuideProgress.value,
+          completed: Array.from(guideCompleted.value),
+          skipped: Array.from(guideSkipped.value)
+        },
+        animation: {
+          enabled: animationEnabled.value,
+          reducedMotion: reducedMotion.value,
+          performanceMode: animationPerformanceMode.value,
+          settings: animationSettings
+        },
+        performance: performanceConfig
+      };
+      localStorage.setItem('user-preferences', JSON.stringify(preferences));
+    } catch (error) {
+      console.warn('保存用户偏好失败:', error);
+    }
+  }
+
+  /**
+   * 加载用户偏好设置
+   */
+  function loadUserPreferences() {
+    try {
+      const saved = localStorage.getItem('user-preferences');
+      if (saved) {
+        const preferences = JSON.parse(saved);
+
+        // 加载引导设置
+        if (preferences.guide) {
+          guideEnabled.value = preferences.guide.enabled ?? true;
+          autoStartGuide.value = preferences.guide.autoStart ?? true;
+          showGuideProgress.value = preferences.guide.showProgress ?? true;
+          guideCompleted.value = new Set(preferences.guide.completed || []);
+          guideSkipped.value = new Set(preferences.guide.skipped || []);
+        }
+
+        // 加载动画设置
+        if (preferences.animation) {
+          animationEnabled.value = preferences.animation.enabled ?? true;
+          reducedMotion.value = preferences.animation.reducedMotion ?? false;
+          animationPerformanceMode.value = preferences.animation.performanceMode ?? false;
+          if (preferences.animation.settings) {
+            Object.assign(animationSettings, preferences.animation.settings);
+          }
+        }
+
+        // 加载性能设置
+        if (preferences.performance) {
+          Object.assign(performanceConfig, preferences.performance);
+        }
+      }
+    } catch (error) {
+      console.warn('加载用户偏好失败:', error);
+    }
+  }
+
+  /**
+   * 检测并应用用户偏好
+   */
+  function applyUserPreferences() {
+    // 应用动画设置
+    performanceConfig.enableAnimations = animationEnabled.value;
+
+    // 检测系统偏好
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion && !reducedMotion.value) {
+      reducedMotion.value = true;
+      showToastMessage('已检测到减少动画偏好设置');
+    }
+
+    // 监听偏好变化
+    window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => {
+      reducedMotion.value = e.matches;
+      if (e.matches) {
+        showToastMessage('已启用减少动画模式');
+      }
+    });
+  }
+
   return {
     // 状态
     showToast,
@@ -611,6 +880,22 @@ export function useUIState() {
     performanceConfig,
     minPanelWidth,
     maxPanelWidth,
+
+    // 引导系统状态
+    guideEnabled,
+    showGuideOverlay,
+    guideStepIndex,
+    guideCompleted,
+    guideSkipped,
+    autoStartGuide,
+    showGuideProgress,
+
+    // 动画系统状态
+    animationEnabled,
+    reducedMotion,
+    animationPerformanceMode,
+    activeAnimationsCount,
+    animationSettings,
 
     // 方法
     setTableTypes,
@@ -662,6 +947,32 @@ export function useUIState() {
     applyHighPerformanceMode,
     detectDevicePerformance,
     setSearchOptions,
-    cleanup
+    cleanup,
+
+    // 引导系统方法
+    toggleGuideEnabled,
+    showGuide,
+    hideGuide,
+    setGuideStepIndex,
+    markGuideCompleted,
+    markGuideSkipped,
+    isGuideCompleted,
+    isGuideSkipped,
+    resetGuideState,
+    toggleAutoStartGuide,
+    toggleGuideProgress,
+
+    // 动画系统方法
+    toggleAnimationEnabled,
+    toggleReducedMotion,
+    toggleAnimationPerformanceMode,
+    setActiveAnimationsCount,
+    updateAnimationSettings,
+    resetAnimationSettings,
+
+    // 用户偏好
+    saveUserPreferences,
+    loadUserPreferences,
+    applyUserPreferences
   };
 }

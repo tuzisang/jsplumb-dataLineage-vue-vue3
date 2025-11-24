@@ -1,6 +1,37 @@
 <template>
+  <!-- 引导覆盖层 -->
+  <GuideOverlay v-if="uiState.guideEnabled && guide.isActive" />
+
+  <!-- 连接线动画器 -->
+  <ConnectionAnimator
+    :showControlPanel="showAnimationPanel"
+    :showDemoArea="false"
+    :defaultType="'flow'"
+    :autoDemo="false"
+    @animation-start="handleAnimationStart"
+    @animation-stop="handleAnimationStop"
+    @config-change="handleAnimationConfigChange"
+    @performance-update="handlePerformanceUpdate"
+  />
+
+  <!-- 动画设置面板（可通过设置按钮触发） -->
+  <div v-if="showAnimationSettings" class="animation-settings-modal">
+    <AnimationSettings
+      @close="showAnimationSettings = false"
+      @save="handleAnimationSettingsSave"
+    />
+  </div>
+
   <!-- <LoginDialog v-if="showLoginDialog" @login-success="handleLoginSuccess" /> -->
-  <div class="app-container" :class="{ 'blurred': false }">
+  <div
+    class="app-container"
+    :class="{
+      'blurred': false,
+      'guide-active': guide.isActive,
+      'animation-disabled': !uiState.animationEnabled,
+      'reduced-motion': uiState.reducedMotion
+    }"
+  >
     <!-- SQL 输入面板 -->
     <div class="sql-container">
       <!-- 最小化按钮单独放置 -->
@@ -98,6 +129,38 @@
 
     <!-- 批量操作按钮 -->
     <div class="batch-actions">
+      <!-- 引导系统按钮 -->
+      <button
+        class="batch-action-btn"
+        @click="startGuide"
+        :class="{ 'active': guide.isActive }"
+        :title="guide.isActive ? '引导进行中' : '开始新手引导'"
+      >
+        <i class="guide-icon">🧭</i>
+        {{ guide.isActive ? '引导进行中' : '新手引导' }}
+      </button>
+
+      <!-- 动画控制按钮 -->
+      <button
+        class="batch-action-btn"
+        @click="toggleAnimationPanel"
+        :class="{ 'active': showAnimationPanel }"
+        :title="showAnimationPanel ? '隐藏动画控制' : '显示动画控制'"
+      >
+        <i class="animation-icon">✨</i>
+        {{ showAnimationPanel ? '隐藏动画' : '动画控制' }}
+      </button>
+
+      <!-- 设置按钮 -->
+      <button
+        class="batch-action-btn"
+        @click="openSettings"
+        title="打开设置"
+      >
+        <i class="settings-icon">⚙️</i>
+        设置
+      </button>
+
       <!-- 仅显示关键路径切换按钮 -->
       <button class="batch-action-btn" @click="toggleCriticalPath" :class="{ 'active': showOnlyCriticalPath }">
         <i class="filter-icon">🔍</i>
@@ -105,20 +168,20 @@
       </button>
 
       <!-- 仅显示关键血缘/显示全景血缘按钮 -->
-      <button class="batch-action-btn" @click="showCriticalLineage" :class="{ 'active': isShowingCriticalLineage }" 
-              :disabled="!isShowingCriticalLineage && (lineageLevel === 'table' ? selectedTables.length === 0 : selectedFields.length === 0)" 
-              :title="isShowingCriticalLineage ? '返回显示所有表的全景血缘' : 
-                (lineageLevel === 'table' ? 
-                  (selectedTables.length === 0 ? '请先勾选要显示的表' : '显示选中表的关键血缘') : 
+      <button class="batch-action-btn" @click="showCriticalLineage" :class="{ 'active': isShowingCriticalLineage }"
+              :disabled="!isShowingCriticalLineage && (lineageLevel === 'table' ? selectedTables.length === 0 : selectedFields.length === 0)"
+              :title="isShowingCriticalLineage ? '返回显示所有表的全景血缘' :
+                (lineageLevel === 'table' ?
+                  (selectedTables.length === 0 ? '请先勾选要显示的表' : '显示选中表的关键血缘') :
                   (selectedFields.length === 0 ? '请先勾选要显示的字段' : '显示选中字段的关键血缘'))">
         <i class="filter-icon">⚡</i>
         {{ isShowingCriticalLineage ? '显示全景血缘' : '仅显示关键血缘' }}
       </button>
 
       <!-- 下载图片按钮 -->
-      <DownloadImage 
+      <DownloadImage
         v-if="json.nodes.length > 0"
-        :target-element="'.table-flow'" 
+        :target-element="'.table-flow'"
         :filename="'血缘关系图'"
         :lineage-level="lineageLevel"
         :js-plumb-instance="jsplumbInstance"
@@ -409,6 +472,28 @@
     <span>虚拟化渲染已启用 ({{ computedVisibleNodes.length }}/{{ json.nodes.length }} 节点)</span>
   </div>
 
+  <!-- 动画设置模态框 -->
+  <Teleport to="body">
+    <div v-if="showAnimationSettings" class="settings-modal-backdrop" @click="showAnimationSettings = false">
+      <div class="settings-modal" @click.stop>
+        <div class="settings-modal-header">
+          <h3>动画与引导设置</h3>
+          <button class="modal-close-btn" @click="showAnimationSettings = false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="settings-modal-content">
+          <AnimationSettings
+            @close="showAnimationSettings = false"
+            @save="handleAnimationSettingsSave"
+          />
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- 作者署名 -->
   <div class="author-signature">
     <span>作者：tuzisang</span>
@@ -425,9 +510,16 @@ import { debounce, throttle } from 'lodash-es'
 import TableNode from './components/TableNode.vue'
 import MiniMap from './components/MiniMap.vue'
 import DownloadImage from './components/DownloadImage.vue'
+import GuideOverlay from './components/GuideOverlay.vue'
+import ConnectionAnimator from './components/ConnectionAnimator.vue'
+import AnimationSettings from './components/AnimationSettings.vue'
 // import LoginDialog from './components/LoginDialog.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
+import { useGuide } from '../composables/useGuide.js'
+import { useAnimation } from '../composables/useAnimation.js'
+import { useUIState } from '../composables/useUIState.js'
+import { firstVisitGuide, getGuideConfigById } from '../config/guideConfig.js'
 
 const VIEWPORT_PADDING = 500; // 可视区域外的缓冲区大小
 const BATCH_SIZE = 10; // 批量处理的节点数量
@@ -441,6 +533,9 @@ export default {
     TableNode,
     MiniMap,
     DownloadImage,
+    GuideOverlay,
+    ConnectionAnimator,
+    AnimationSettings,
     // LoginDialog
   },
   data() {
@@ -598,11 +693,23 @@ export default {
       originalNodes: [],
       originalEdges: [],
       criticalLineageNodes: [],
-      criticalLineageEdges: []
+      criticalLineageEdges: [],
+
+      // 引导系统相关状态
+      showAnimationPanel: false,
+      showAnimationSettings: false,
+
+      // Composables实例（在setup中初始化）
+      guide: null,
+      animation: null,
+      uiState: null
     };
   },
   mounted() {
     // this.checkLogin();
+
+    // 初始化Composables
+    this.initComposables();
 
     // 先应用高性能模式
     this.applyHighPerformanceMode();
@@ -902,6 +1009,167 @@ export default {
   },
   methods: {
     ...comm,
+
+    // ================================
+    // 引导和动画系统初始化
+    // ================================
+    initComposables() {
+      try {
+        // 初始化UI状态管理
+        this.uiState = useUIState();
+
+        // 初始化引导系统
+        this.guide = useGuide();
+
+        // 初始化动画系统
+        this.animation = useAnimation();
+
+        // 加载用户偏好
+        this.uiState.loadUserPreferences();
+        this.uiState.applyUserPreferences();
+
+        // 注册引导配置
+        this.guide.registerGuide(firstVisitGuide);
+
+        // 检查是否需要自动启动引导
+        this.checkAutoStartGuide();
+
+        console.log('引导和动画系统初始化完成');
+      } catch (error) {
+        console.error('初始化引导和动画系统失败:', error);
+      }
+    },
+
+    // ================================
+    // 引导系统相关方法
+    // ================================
+    checkAutoStartGuide() {
+      if (this.guide && this.uiState.guideEnabled && this.uiState.autoStartGuide) {
+        // 延迟启动，确保页面完全渲染
+        setTimeout(() => {
+          if (!this.guide.hasGuideCompleted('first-visit') &&
+              !this.guide.hasGuideSkipped('first-visit')) {
+            this.guide.startGuide('first-visit');
+          }
+        }, 2000);
+      }
+    },
+
+    startGuide() {
+      if (this.guide) {
+        if (this.guide.isActive) {
+          this.guide.stopGuide('skip');
+        } else {
+          // 重新开始引导
+          this.guide.resetGuideState('first-visit');
+          this.guide.startGuide('first-visit');
+        }
+      }
+    },
+
+    // ================================
+    // 动画系统相关方法
+    // ================================
+    toggleAnimationPanel() {
+      this.showAnimationPanel = !this.showAnimationPanel;
+    },
+
+    openSettings() {
+      this.showAnimationSettings = true;
+    },
+
+    handleAnimationStart(data) {
+      console.log('动画开始:', data);
+      // 可以在这里添加动画开始时的逻辑
+    },
+
+    handleAnimationStop(data) {
+      console.log('动画停止:', data);
+      // 可以在这里添加动画停止时的逻辑
+    },
+
+    handleAnimationConfigChange(data) {
+      console.log('动画配置变更:', data);
+      // 同步配置到UI状态
+      if (this.uiState && data.config) {
+        this.uiState.updateAnimationSettings(data.config);
+      }
+    },
+
+    handlePerformanceUpdate(data) {
+      console.log('性能数据更新:', data);
+      // 更新性能统计到UI状态
+      if (this.uiState) {
+        this.uiState.setActiveAnimationsCount(data.count || 0);
+      }
+    },
+
+    handleAnimationSettingsSave(settings) {
+      console.log('动画设置已保存:', settings);
+      this.showAnimationSettings = false;
+      this.uiState.showToastMessage('动画设置已保存');
+    },
+
+    // ================================
+    // JSPlumb集成相关方法
+    // ================================
+    initJSPlumbAnimations() {
+      if (this.animation && this.jsplumbInstance) {
+        // 设置JSPlumb实例到动画系统
+        this.animation.setJSPlumbInstance(this.jsplumbInstance);
+
+        // 配置连接线动画
+        this.setupConnectionAnimations();
+      }
+    },
+
+    setupConnectionAnimations() {
+      if (!this.jsplumbInstance || !this.animation) return;
+
+      // 监听连接建立事件，自动开始动画
+      this.jsplumbInstance.bind('connection', (connection) => {
+        if (this.uiState.animationEnabled && this.animation.animationEnabled.value) {
+          // 延迟开始动画，确保连接完全渲染
+          setTimeout(() => {
+            this.animation.startConnectionAnimation(connection.id, {
+              type: 'flow',
+              speed: 1.0,
+              loop: true
+            });
+          }, 100);
+        }
+      });
+
+      // 监听连接点击事件
+      this.jsplumbInstance.bind('click', (connection) => {
+        if (this.uiState.animationEnabled && this.animation) {
+          // 切换动画效果
+          if (this.animation.activeAnimationsCount.value > 0) {
+            this.animation.stopConnectionAnimation(connection.id);
+          } else {
+            this.animation.startConnectionAnimation(connection.id, {
+              type: 'highlight',
+              duration: 1000,
+              loop: false
+            });
+          }
+        }
+      });
+    },
+
+    // 重写原有的连接方法以支持动画
+    makeSource(connectionConfig) {
+      const result = comm.makeSource.call(this, connectionConfig);
+
+      // 连接建立后启动动画
+      if (this.jsplumbInstance && this.animation) {
+        setTimeout(() => {
+          this.setupConnectionAnimations();
+        }, 500);
+      }
+
+      return result;
+    },
     toggleMinimize() {
       this.isMinimized = !this.isMinimized
     },
@@ -964,6 +1232,9 @@ export default {
         this.initPanZoom();
 
         this.bindConnectionEvents();
+
+        // 初始化动画系统
+        this.initJSPlumbAnimations();
 
         this.isInitializing = false;
 

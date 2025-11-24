@@ -1,0 +1,918 @@
+/**
+ * 新手引导样式
+ * 包含引导覆盖层、高亮效果、提示框等样式
+ */
+
+/* ================================
+   引导覆盖层基础样式
+   ================================ */
+.guide-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  pointer-events: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.guide-overlay__backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: guideBackdropFadeIn 0.3s ease-out;
+}
+
+@keyframes guideBackdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(2px);
+  }
+}
+
+/* ================================
+   高亮区域样式
+   ================================ */
+.guide-highlight-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+  pointer-events: auto;
+}
+
+.guide-highlight-element {
+  position: relative;
+  z-index: 10000;
+  outline: none;
+}
+
+.guide-highlight-element::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 2px solid #1890ff;
+  border-radius: 8px;
+  background: rgba(24, 144, 255, 0.1);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  animation: guideHighlightPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes guideHighlightPulse {
+  0%, 100% {
+    border-color: #1890ff;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px rgba(24, 144, 255, 0.3);
+  }
+  50% {
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 30px rgba(64, 169, 255, 0.5);
+  }
+}
+
+/* 高亮窗口（镂空效果） */
+.guide-highlight-window {
+  position: absolute;
+  border-radius: 8px;
+  box-shadow: 0 0 0 10000px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.guide-highlight-window::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid #1890ff;
+  border-radius: inherit;
+  animation: guideWindowGlow 2s ease-in-out infinite;
+}
+
+@keyframes guideWindowGlow {
+  0%, 100% {
+    border-color: #1890ff;
+    box-shadow: 0 0 10px rgba(24, 144, 255, 0.3);
+  }
+  50% {
+    border-color: #40a9ff;
+    box-shadow: 0 0 20px rgba(64, 169, 255, 0.6);
+  }
+}
+
+/* ================================
+   引导内容样式
+   ================================ */
+.guide-content {
+  position: absolute;
+  z-index: 10000;
+  max-width: 400px;
+  min-width: 280px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: guideContentSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes guideContentSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 居中定位 */
+.guide-content--center {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 500px;
+  width: 90vw;
+}
+
+/* 位置相关样式 */
+.guide-content--top::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #ffffff;
+  z-index: 10001;
+}
+
+.guide-content--bottom::after {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-bottom-color: #ffffff;
+  z-index: 10001;
+}
+
+.guide-content--left::after {
+  content: '';
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 8px solid transparent;
+  border-left-color: #ffffff;
+  z-index: 10001;
+}
+
+.guide-content--right::after {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 8px solid transparent;
+  border-right-color: #ffffff;
+  z-index: 10001;
+}
+
+/* ================================
+   引导头部样式
+   ================================ */
+.guide-content__header {
+  padding: 20px 24px 16px;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+}
+
+.guide-content__title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.guide-content__subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.guide-content__close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.guide-content__close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #64748b;
+}
+
+.guide-content__close:focus {
+  outline: none;
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
+}
+
+/* ================================
+   引导主体样式
+   ================================ */
+.guide-content__body {
+  padding: 20px 24px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.guide-content__body p {
+  margin: 0 0 12px;
+}
+
+.guide-content__body p:last-child {
+  margin-bottom: 0;
+}
+
+.guide-content__body ul,
+.guide-content__body ol {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.guide-content__body li {
+  margin: 6px 0;
+}
+
+.guide-content__body code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.guide-content__body blockquote {
+  margin: 12px 0;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border-left: 4px solid #1890ff;
+  border-radius: 0 6px 6px 0;
+  color: #1e40af;
+  font-size: 13px;
+}
+
+.guide-content__body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+/* ================================
+   引导操作区域样式
+   ================================ */
+.guide-content__actions {
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guide-actions__left {
+  display: flex;
+  gap: 8px;
+}
+
+.guide-actions__right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.guide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.guide-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.guide-btn--primary {
+  background: linear-gradient(135deg, #1890ff, #40a9ff);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+.guide-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #096dd9, #1890ff);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.guide-btn--primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.2);
+}
+
+.guide-btn--secondary {
+  background: #ffffff;
+  color: #64748b;
+  border-color: #e5e7eb;
+}
+
+.guide-btn--secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #374151;
+  border-color: #cbd5e1;
+}
+
+.guide-btn--secondary:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.guide-btn--ghost {
+  background: transparent;
+  color: #64748b;
+  border-color: transparent;
+}
+
+.guide-btn--ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: #374151;
+}
+
+.guide-btn--danger {
+  background: #ff4d4f;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 77, 79, 0.3);
+}
+
+.guide-btn--danger:hover:not(:disabled) {
+  background: #ff7875;
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.4);
+}
+
+/* ================================
+   引导进度样式
+   ================================ */
+.guide-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 12px 20px;
+}
+
+.guide-progress__bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.guide-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1890ff, #40a9ff);
+  border-radius: 2px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.guide-progress__fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: progressShimmer 2s linear infinite;
+}
+
+@keyframes progressShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.guide-progress__text {
+  text-align: center;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.guide-progress__steps {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.guide-progress__step {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.guide-progress__step--active {
+  width: 16px;
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+.guide-progress__step--completed {
+  background: #52c41a;
+}
+
+/* ================================
+   引导工具栏样式
+   ================================ */
+.guide-toolbar {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 8px;
+}
+
+.guide-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.guide-toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.guide-toolbar-btn:focus {
+  outline: none;
+  background: rgba(24, 144, 255, 0.2);
+  color: #40a9ff;
+}
+
+.guide-toolbar__divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ================================
+   键盘快捷键提示
+   ================================ */
+.guide-keyboard-hints {
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.guide-keyboard-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guide-keyboard-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: #374151;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ================================
+   移动端触摸提示
+   ================================ */
+.guide-touch-hint {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10002;
+  cursor: pointer;
+  animation: guideTouchBounce 0.6s ease-out;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@keyframes guideTouchBounce {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(100px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  70% {
+    transform: translateX(-50%) translateY(5px);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.guide-touch-hint__ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border: 2px solid #1890ff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: guideTouchRipple 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes guideTouchRipple {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(3);
+  }
+}
+
+/* ================================
+   特殊效果样式
+   ================================ */
+
+/* 扫描线效果 */
+.guide-scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #1890ff 50%, transparent 100%);
+  animation: guideScanLine 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+@keyframes guideScanLine {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* 雷达扫描效果 */
+.guide-radar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9997;
+}
+
+.guide-radar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid rgba(24, 144, 255, 0.3);
+  border-radius: 50%;
+  animation: guideRadarExpand 3s ease-out infinite;
+}
+
+.guide-radar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 50%;
+  background: linear-gradient(to bottom, transparent, #1890ff);
+  transform-origin: top center;
+  animation: guideRadarScan 3s linear infinite;
+}
+
+@keyframes guideRadarExpand {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes guideRadarScan {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* ================================
+   响应式设计
+   ================================ */
+
+/* 移动设备适配 */
+@media (max-width: 768px) {
+  .guide-content {
+    max-width: calc(100vw - 40px);
+    margin: 0 20px;
+  }
+
+  .guide-content__header {
+    padding: 16px 20px 12px;
+  }
+
+  .guide-content__title {
+    font-size: 16px;
+  }
+
+  .guide-content__subtitle {
+    font-size: 13px;
+  }
+
+  .guide-content__body {
+    padding: 16px 20px;
+    font-size: 13px;
+  }
+
+  .guide-content__actions {
+    padding: 12px 20px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .guide-actions__left,
+  .guide-actions__right {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .guide-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .guide-keyboard-hints {
+    display: none;
+  }
+
+  .guide-toolbar {
+    top: auto;
+    bottom: 20px;
+    right: 20px;
+    left: 20px;
+    justify-content: space-between;
+  }
+
+  .guide-touch-hint {
+    bottom: 80px;
+    font-size: 13px;
+    padding: 10px 16px;
+  }
+}
+
+/* 超小屏幕适配 */
+@media (max-width: 480px) {
+  .guide-progress {
+    padding: 10px 16px;
+  }
+
+  .guide-content {
+    border-radius: 8px;
+  }
+
+  .guide-content__header {
+    padding: 12px 16px 8px;
+  }
+
+  .guide-content__body {
+    padding: 12px 16px;
+  }
+
+  .guide-content__actions {
+    padding: 10px 16px;
+  }
+
+  .guide-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
+
+/* 横屏适配 */
+@media (max-height: 600px) and (orientation: landscape) {
+  .guide-content {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .guide-content__body {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  .guide-touch-hint {
+    bottom: 60px;
+  }
+}
+
+/* ================================
+   无障碍支持
+   ================================ */
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .guide-content {
+    border: 2px solid #000000;
+  }
+
+  .guide-btn--primary {
+    background: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+  }
+
+  .guide-btn--secondary {
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+  }
+
+  .guide-highlight-element::before {
+    border-color: #ffffff;
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  .guide-overlay,
+  .guide-content,
+  .guide-highlight-overlay,
+  .guide-touch-hint {
+    animation: none;
+    transition: none;
+  }
+
+  .guide-highlight-element::before,
+  .guide-highlight-window::after {
+    animation: none;
+  }
+
+  .guide-progress__fill::after {
+    animation: none;
+  }
+
+  .guide-scan-line,
+  .guide-radar {
+    display: none;
+  }
+}
+
+/* 焦点样式 */
+.guide-content:focus,
+.guide-btn:focus,
+.guide-toolbar-btn:focus {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+/* 高对比度焦点 */
+@media (prefers-contrast: high) {
+  .guide-content:focus,
+  .guide-btn:focus,
+  .guide-toolbar-btn:focus {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+  }
+}

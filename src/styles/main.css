@@ -1,0 +1,222 @@
+/**
+ * 主样式文件
+ * 导入所有功能模块的样式
+ */
+
+/* 导入引导系统样式 */
+@import './guide.css';
+
+/* 导入动画系统样式 */
+@import './animations.css';
+
+/* 导入现有应用样式 - 注释掉不存在的引用 */
+
+/* 全局重置和基础样式 */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+}
+
+/* 引导和动画状态下的应用样式 */
+.app-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  transition: filter 0.3s ease;
+}
+
+.app-container.guide-active {
+  /* 引导激活时背景模糊 */
+}
+
+.app-container.animation-disabled {
+  /* 动画禁用时的样式 */
+}
+
+.app-container.reduced-motion {
+  /* 减少动画模式下的样式 */
+}
+
+/* 模态框样式 */
+.settings-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.settings-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #374151;
+}
+
+.settings-modal-content {
+  max-height: calc(90vh - 80px);
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* 性能优化样式 */
+.performance-mode .settings-modal {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.performance-mode .settings-modal-backdrop {
+  backdrop-filter: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .settings-modal {
+    width: 95vw;
+    max-height: 95vh;
+  }
+
+  .settings-modal-header {
+    padding: 16px 20px;
+  }
+
+  .settings-modal-header h3 {
+    font-size: 16px;
+  }
+
+  .settings-modal-content {
+    max-height: calc(95vh - 70px);
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-modal {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .settings-modal-header {
+    padding: 12px 16px;
+  }
+
+  .settings-modal-content {
+    max-height: calc(100vh - 60px);
+  }
+}
+
+/* 动画关键帧 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 工具类 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.focus-outline {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .settings-modal {
+    border: 2px solid #000000;
+  }
+
+  .modal-close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* 减少动画模式支持 */
+@media (prefers-reduced-motion: reduce) {
+  .settings-modal-backdrop,
+  .settings-modal,
+  .app-container {
+    animation: none;
+    transition: none;
+  }
+}
