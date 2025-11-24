@@ -456,8 +456,8 @@ import ConnectionAnimator from './components/ConnectionAnimator.vue'
 import AnimationSettings from './components/AnimationSettings.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
-import { useGuide } from '../composables/useGuide.js'
-import { useUIState } from '../composables/useUIState.js'
+// import { useGuide } from '../composables/useGuide.js'
+// import { useUIState } from '../composables/useUIState.js'
 
 const VIEWPORT_PADDING = 500; // 可视区域外的缓冲区大小
 const BATCH_SIZE = 10; // 批量处理的节点数量
@@ -959,8 +959,65 @@ export default {
     // 新手引导相关方法
     initGuide() {
       try {
-        const { GUIDE_STEPS } = require('../composables/useGuide.js');
-        this.guideSteps = GUIDE_STEPS;
+        // 定义引导步骤，避免动态导入问题
+        this.guideSteps = [
+          {
+            target: '.sql-input-panel',
+            title: '欢迎使用数据血缘分析工具！',
+            description: '让我们从第一步开始：在这里输入或粘贴您的SQL查询语句。您也可以上传SQL文件进行分析。',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.lineage-level-selector',
+            title: '选择血缘分析级别',
+            description: '选择表级查看表之间的血缘关系，或选择列级查看字段级别的详细血缘。',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.sql-dialect-selector',
+            title: 'SQL方言检测',
+            description: '系统会自动检测您的SQL方言，也支持手动指定MySQL、PostgreSQL、SparkSQL等多种方言。',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.analyze-button',
+            title: '开始分析',
+            description: '点击这个按钮开始分析您的SQL查询。系统会自动解析血缘关系并生成可视化图表。',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.lineage-canvas',
+            title: '血缘可视化图表',
+            description: '在这里查看您的数据血缘关系图。不同颜色代表不同类型的表：🟢 来源表 | 🔵 中间表 | 🟠 结果表',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.search-input',
+            title: '智能搜索',
+            description: '使用搜索功能快速找到特定的表或字段。支持模糊匹配，响应速度极快！',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.control-panel',
+            title: '控制面板',
+            description: '在这里可以查看节点列表、批量操作、导出结果等。试试关键路径分析功能！',
+            extraContent: null,
+            showSkip: true
+          },
+          {
+            target: '.mini-map',
+            title: '小地图导航',
+            description: '当血缘关系复杂时，使用小地图快速导航。点击小地图可以快速定位到不同区域。',
+            extraContent: null,
+            showSkip: false
+          }
+        ];
 
         // 检查是否需要显示引导
         const hasCompletedGuide = localStorage.getItem('guide_completed');

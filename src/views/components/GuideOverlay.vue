@@ -19,7 +19,7 @@
     >
       <div class="guide-tooltip-content">
         <h3 class="guide-tooltip-title">{{ currentStep.title }}</h3>
-        <div class="guide-tooltip-description" v-html="currentStep.description"></div>
+        <div class="guide-tooltip-description" v-text="currentStep.description"></div>
 
         <!-- 可选的额外内容 -->
         <div v-if="currentStep.extraContent" class="guide-tooltip-extra">

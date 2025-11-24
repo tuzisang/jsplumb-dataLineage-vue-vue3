@@ -109,10 +109,27 @@ export default {
       return `pulse-${connectionId}-${Date.now()}`
     }
 
+    // 缓存DOM查询结果
+    const elementCache = new Map()
+
     // 计算连接线路径点
     const calculateConnectionPath = (connection) => {
-      const sourceElement = document.querySelector(connection.source)
-      const targetElement = document.querySelector(connection.target)
+      // 使用缓存避免重复DOM查询
+      let sourceElement = elementCache.get(connection.source)
+      if (!sourceElement) {
+        sourceElement = document.querySelector(connection.source)
+        if (sourceElement) {
+          elementCache.set(connection.source, sourceElement)
+        }
+      }
+
+      let targetElement = elementCache.get(connection.target)
+      if (!targetElement) {
+        targetElement = document.querySelector(connection.target)
+        if (targetElement) {
+          elementCache.set(connection.target, targetElement)
+        }
+      }
 
       if (!sourceElement || !targetElement) return null
 
@@ -275,6 +292,8 @@ export default {
 
     // 重启动画
     const restartAnimation = () => {
+      // 清理DOM缓存
+      elementCache.clear()
       stopAnimation()
       startAnimation()
     }
