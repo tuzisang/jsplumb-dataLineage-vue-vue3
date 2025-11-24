@@ -3,3 +3,4 @@ networkx==3.5
 flask==2.0.1
 flask-cors==3.0.10
 werkzeug==2.0.3
+regex==2023.10.3
