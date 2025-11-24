@@ -1,8 +1,18 @@
 <template>
   <!-- <LoginDialog v-if="showLoginDialog" @login-success="handleLoginSuccess" /> -->
+
+  <!-- 新手引导覆盖层 -->
+  <GuideOverlay
+    :steps="guideSteps"
+    :is-visible="isGuideVisible"
+    @complete="handleGuideComplete"
+    @skip="handleGuideSkip"
+    @step-change="handleGuideStepChange"
+  />
+
   <div class="app-container" :class="{ 'blurred': false }">
     <!-- SQL 输入面板 -->
-    <div class="sql-container">
+    <div class="sql-container sql-input-panel">
       <!-- 最小化按钮单独放置 -->
       <button class="minimize-btn modern" @click="toggleMinimize" :title="isMinimized ? '展开' : '最小化'">
         <svg v-if="isMinimized" width="22" height="22" viewBox="0 0 24 24" fill="none"
@@ -25,7 +35,7 @@
           </div>
           <div class="sql-actions compact">
             <div class="sql-options compact">
-              <div class="lineage-level-selector compact">
+              <div class="lineage-level-selector compact lineage-level-selector">
                 <span class="option-label">血缘分析级别：</span>
                 <label class="radio-label">
                   <input type="radio" v-model="lineageLevel" value="table">
@@ -37,7 +47,7 @@
                 </label>
               </div>
               <!-- 新增：SQL 方言选择 -->
-              <div class="sql-dialect-selector compact">
+              <div class="sql-dialect-selector compact sql-dialect-selector">
                 <span class="option-label">SQL 方言：</span>
                 <select v-model="sqlDialect" class="dialect-select">
                   <option value="default">默认 (ansi)</option>
@@ -61,7 +71,7 @@
                 <input type="file" accept=".txt,.sql" @change="handleFileUpload" style="display: none;">
                 📁 上传SQL文件
               </label>
-              <button class="analyze-btn compact" @click="analyzeSql" :disabled="!sqlQuery.trim() || isAnalyzing">
+              <button class="analyze-btn compact analyze-button" @click="analyzeSql" :disabled="!sqlQuery.trim() || isAnalyzing">
                 {{ isAnalyzing ? '分析中...' : '分析血缘关系' }}
               </button>
             </div>
@@ -76,7 +86,7 @@
     </div>
 
     <!-- 小地图 -->
-    <MiniMap v-if="json.nodes.length > 0" :nodes="json.nodes" :edges="json.edges"
+    <MiniMap v-if="json.nodes.length > 0" class="mini-map" :nodes="json.nodes" :edges="json.edges"
       :transform="getTransform()" :container-size="getContainerSize()" :width="miniMapWidth" :height="miniMapHeight"
       @navigate="handleMinimapNavigate" @resize="handleMiniMapResize" />
 
@@ -179,7 +189,16 @@
         <div class="loading-spinner"></div>
         <div class="loading-text">正在分析血缘关系...</div>
       </div>
-      <div id="table-flow" class="table-flow">
+      <div id="table-flow" class="table-flow lineage-canvas">
+        <!-- 连接线动画效果 -->
+        <ConnectionAnimator
+          :connections="animationConnections"
+          :animation-enabled="animationSettings.animationEnabled"
+          :animation-speed="animationSettings.animationSpeed"
+          :show-data-flow="animationSettings.showDataFlow"
+          :show-pulse-effect="animationSettings.showPulseEffect"
+        />
+
         <TableNode v-for="node in computedVisibleNodes" :key="node.name" :node="node"
         :highlightedTables="highlightedTables"
           :selectedTables="selectedTables" :selectedFields="selectedFields" :highlightedFields="highlightedFields" :isDisabled="isNodeDisabled(node)" :edges="json.edges" 
@@ -213,7 +232,7 @@
     </div>
 
     <!-- 节点列表面板 -->
-    <div class="node-list-panel" :class="{ 'node-list-panel--minimized': isNodeListMinimized }" :style="{ width: isNodeListMinimized ? '40px' : panelWidth + 'px' }">
+    <div class="node-list-panel control-panel" :class="{ 'node-list-panel--minimized': isNodeListMinimized }" :style="{ width: isNodeListMinimized ? '40px' : panelWidth + 'px' }">
       <div class="panel-header">
         <h3 v-show="!isNodeListMinimized">
           <template v-if="listMode === 'table'">表列表</template>
@@ -232,7 +251,7 @@
         </button>
         <div class="panel-search" v-show="!isNodeListMinimized">
           <input type="text" v-model="nodeSearchQuery" :placeholder="listMode === 'table' ? '搜索表名...' : '搜索字段名...'"
-            class="node-search-input" @input="handleNodeSearch">
+            class="node-search-input search-input" @input="handleNodeSearch">
           <span v-if="nodeSearchQuery" class="clear-search" @click="clearNodeSearch">✕</span>
         </div>
         <!-- 切换按钮 -->
@@ -276,6 +295,12 @@
             <span class="toggle-text">按类型分组</span>
           </label>
         </div>
+
+        <!-- 动画设置组件 -->
+        <AnimationSettings
+          v-show="!isNodeListMinimized"
+          @settings-change="handleAnimationSettingsChange"
+        />
       </div>
       <div class="node-list" v-show="!isNodeListMinimized">
         <!-- 新增：表头说明 -->
@@ -426,8 +451,13 @@ import TableNode from './components/TableNode.vue'
 import MiniMap from './components/MiniMap.vue'
 import DownloadImage from './components/DownloadImage.vue'
 // import LoginDialog from './components/LoginDialog.vue'
+import GuideOverlay from './components/GuideOverlay.vue'
+import ConnectionAnimator from './components/ConnectionAnimator.vue'
+import AnimationSettings from './components/AnimationSettings.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
+import { useGuide } from '../composables/useGuide.js'
+import { useUIState } from '../composables/useUIState.js'
 
 const VIEWPORT_PADDING = 500; // 可视区域外的缓冲区大小
 const BATCH_SIZE = 10; // 批量处理的节点数量
@@ -441,6 +471,9 @@ export default {
     TableNode,
     MiniMap,
     DownloadImage,
+    GuideOverlay,
+    ConnectionAnimator,
+    AnimationSettings,
     // LoginDialog
   },
   data() {
@@ -463,6 +496,20 @@ export default {
       commGrid: [2, 2],
       searchQuery: '',
       showDropdown: false,
+
+      // 新手引导相关
+      isGuideVisible: false,
+      guideSteps: [],
+
+      // 动画设置相关
+      animationSettings: {
+        animationEnabled: true,
+        animationSpeed: 1,
+        showDataFlow: true,
+        showPulseEffect: true,
+        performanceMode: 'low'
+      },
+      animationConnections: [],
       filteredFields: [],
       showToast: false,
       toastMessage: '',
@@ -651,6 +698,12 @@ export default {
         this.adjustAuthorPosition();
       }, 200);
     });
+
+    // 初始化新手引导
+    this.initGuide();
+
+    // 初始化动画设置
+    this.initAnimationSettings();
 
     // 保存高性能模式设置到 localStorage
     try {
@@ -902,6 +955,85 @@ export default {
   },
   methods: {
     ...comm,
+
+    // 新手引导相关方法
+    initGuide() {
+      try {
+        const { GUIDE_STEPS } = require('../composables/useGuide.js');
+        this.guideSteps = GUIDE_STEPS;
+
+        // 检查是否需要显示引导
+        const hasCompletedGuide = localStorage.getItem('guide_completed');
+        if (!hasCompletedGuide) {
+          // 延迟显示引导，确保页面完全加载
+          setTimeout(() => {
+            this.isGuideVisible = true;
+          }, 1500);
+        }
+      } catch (error) {
+        console.warn('新手引导初始化失败:', error);
+      }
+    },
+
+    handleGuideComplete() {
+      this.isGuideVisible = false;
+      localStorage.setItem('guide_completed', 'true');
+      localStorage.setItem('guide_completed_at', new Date().toISOString());
+      console.log('新手引导完成');
+    },
+
+    handleGuideSkip() {
+      this.isGuideVisible = false;
+      localStorage.setItem('guide_completed', 'true');
+      localStorage.setItem('guide_skipped_at', new Date().toISOString());
+      console.log('新手引导跳过');
+    },
+
+    handleGuideStepChange(stepIndex, step) {
+      console.log(`引导步骤 ${stepIndex + 1}: ${step.title}`);
+    },
+
+    // 动画设置相关方法
+    initAnimationSettings() {
+      try {
+        const saved = localStorage.getItem('animation_settings');
+        if (saved) {
+          this.animationSettings = { ...this.animationSettings, ...JSON.parse(saved) };
+        }
+      } catch (error) {
+        console.warn('动画设置加载失败:', error);
+      }
+    },
+
+    handleAnimationSettingsChange(settings) {
+      this.animationSettings = { ...this.animationSettings, ...settings };
+      try {
+        localStorage.setItem('animation_settings', JSON.stringify(this.animationSettings));
+      } catch (error) {
+        console.warn('动画设置保存失败:', error);
+      }
+    },
+
+    updateAnimationConnections() {
+      // 将JSPlumb连接转换为动画组件需要的格式
+      if (!this.jsplumbInstance || !this.json.edges.length) {
+        this.animationConnections = [];
+        return;
+      }
+
+      try {
+        this.animationConnections = this.json.edges.map((edge, index) => ({
+          id: `connection-${index}`,
+          source: `.table-node[data-table="${edge.from.name}"]`,
+          target: `.table-node[data-table="${edge.to.name}"]`,
+          type: 'lineage'
+        }));
+      } catch (error) {
+        console.warn('连接数据转换失败:', error);
+        this.animationConnections = [];
+      }
+    },
+
     toggleMinimize() {
       this.isMinimized = !this.isMinimized
     },
@@ -4391,6 +4523,11 @@ export default {
 
         // 重新初始化画布
         await this.reinitializeCanvas();
+
+        // 更新动画连接数据
+        this.$nextTick(() => {
+          this.updateAnimationConnections();
+        });
 
         // 定位到第一个来源表
         this.$nextTick(() => {
