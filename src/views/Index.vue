@@ -116,9 +116,9 @@
       </button>
 
       <!-- 下载图片按钮 -->
-      <DownloadImage 
+      <DownloadImage
         v-if="json.nodes.length > 0"
-        :target-element="'.table-flow'" 
+        :target-element="'.table-flow'"
         :filename="'血缘关系图'"
         :lineage-level="lineageLevel"
         :js-plumb-instance="jsplumbInstance"
@@ -126,6 +126,22 @@
         @success="handleDownloadSuccess"
         @error="handleDownloadError"
         @refresh-plumb="optimizedJsPlumbRepaint"
+      />
+
+      <!-- 导出JSON按钮 -->
+      <JsonExporter
+        v-if="json.nodes.length > 0"
+        :lineage-data="json"
+        :sql-query="sqlQuery"
+        :lineage-level="lineageLevel"
+        :sql-dialect="sqlDialect"
+        :filter-ctes="filterCtes"
+        :selected-tables="selectedTables"
+        :selected-fields="selectedFields"
+        :hidden-nodes="hiddenNodes"
+        :show-only-critical-path="showOnlyCriticalPath"
+        @success="handleJsonExportSuccess"
+        @error="handleJsonExportError"
       />
 
       <!-- 历史记录面板 -->
@@ -425,6 +441,7 @@ import { debounce, throttle } from 'lodash-es'
 import TableNode from './components/TableNode.vue'
 import MiniMap from './components/MiniMap.vue'
 import DownloadImage from './components/DownloadImage.vue'
+import JsonExporter from './components/JsonExporter.vue'
 // import LoginDialog from './components/LoginDialog.vue'
 import sampleData from './config/sampleData.json'
 import colorFields from './config/tableTypeMappingColor'
@@ -441,6 +458,7 @@ export default {
     TableNode,
     MiniMap,
     DownloadImage,
+    JsonExporter,
     // LoginDialog
   },
   data() {
@@ -2379,6 +2397,23 @@ export default {
     handleDownloadError(error) {
       console.error('下载失败:', error)
       this.showToastMessage('图片下载失败，请重试')
+    },
+
+    // 处理JSON导出成功
+    handleJsonExportSuccess(data) {
+      if (typeof data === 'string') {
+        this.showToastMessage('JSON数据导出成功！')
+      } else {
+        const { filename } = data
+        this.showToastMessage(`JSON数据导出成功！文件：${filename}`)
+      }
+      console.log('JSON导出成功:', data)
+    },
+
+    // 处理JSON导出错误
+    handleJsonExportError(error) {
+      console.error('JSON导出失败:', error)
+      this.showToastMessage('JSON导出失败，请重试')
     },
 
     // 处理复制字段事件
